@@ -1,0 +1,11 @@
+.git
+.env
+__pycache__
+*.pyc
+node_modules
+frontend/dist
+data/uploads/*
+data/vector_store/*
+.vscode
+.idea
+*.md

@@ -1,0 +1,153 @@
+# ============================================================
+# Nexus Chat - Configuration
+# ============================================================
+# Edit this file to configure LLM providers, tools, and RAG.
+# Restart the server after making changes.
+# ============================================================
+
+app:
+  name: "Nexus Chat"
+  version: "0.1.0"
+  host: "0.0.0.0"
+  port: 8000
+  debug: false
+  # Secret key for sessions (change in production!)
+  secret_key: "change-me-in-production"
+
+# ------------------------------------------------------------
+# LLM Providers
+# ------------------------------------------------------------
+# Enable/disable providers and set API keys here.
+# You can also set keys via environment variables:
+#   ANTHROPIC_API_KEY, OPENAI_API_KEY
+# ------------------------------------------------------------
+providers:
+  anthropic:
+    enabled: true
+    api_key: "${ANTHROPIC_API_KEY}"  # Set via env var or paste key here
+    default_model: "claude-sonnet-4-20250514"
+    models:
+      - id: "claude-sonnet-4-20250514"
+        name: "Claude Sonnet 4"
+        max_tokens: 8192
+      - id: "claude-haiku-4-5-20251001"
+        name: "Claude Haiku 4.5"
+        max_tokens: 8192
+
+  openai:
+    enabled: true
+    api_key: "${OPENAI_API_KEY}"
+    default_model: "gpt-4o"
+    models:
+      - id: "gpt-4o"
+        name: "GPT-4o"
+        max_tokens: 4096
+      - id: "gpt-4o-mini"
+        name: "GPT-4o Mini"
+        max_tokens: 4096
+
+  ollama:
+    enabled: true
+    # For local Ollama: http://localhost:11434
+    # For cloud/remote: use the remote URL
+    base_url: "${OLLAMA_BASE_URL:-http://host.docker.internal:11434}"
+    default_model: "llama3.2"
+    models:
+      - id: "llama4:latest"
+        name: "Llama 4"
+        max_tokens: 4096 
+      - id: "qwen3.5:27b"
+        name: "Qwen 3.5"
+        max_tokens: 4096
+      - id: "qwen2.5:latest"
+        name: "Qwen 2.5"
+        max_tokens: 4096
+      - id: "llama3.2"
+        name: "Llama 3.2"
+        max_tokens: 4096
+      - id: "mistral"
+        name: "Mistral"
+        max_tokens: 4096
+      - id: "codellama"
+        name: "Code Llama"
+        max_tokens: 4096
+
+# ------------------------------------------------------------
+# Tools
+# ------------------------------------------------------------
+# Each tool is a Python module in backend/tools/
+# Set enabled: true/false to toggle tools.
+# To add a new tool:
+#   1. Create a Python file in backend/tools/
+#   2. Implement the Tool base class
+#   3. Add an entry here
+# ------------------------------------------------------------
+tools:
+  calculator:
+    enabled: true
+    name: "Calculator"
+    description: "Evaluate mathematical expressions"
+    icon: "calculator"
+
+  web_search:
+    enabled: true
+    name: "Web Search"
+    description: "Search the web for current information"
+    icon: "search"
+    config:
+      api_key: "${SEARCH_API_KEY}"
+      engine: "duckduckgo"  # or "google", "bing"
+
+  code_executor:
+    enabled: true
+    name: "Code Executor"
+    description: "Execute Python code in a sandboxed environment"
+    icon: "code"
+    config:
+      timeout: 30
+      max_memory_mb: 256
+
+  datetime_tool:
+    enabled: true
+    name: "Date & Time"
+    description: "Get current date, time, and timezone info"
+    icon: "clock"
+
+  file_reader:
+    enabled: true
+    name: "File Reader"
+    description: "Read and parse uploaded files"
+    icon: "file-text"
+
+# ------------------------------------------------------------
+# RAG (Retrieval-Augmented Generation)
+# ------------------------------------------------------------
+rag:
+  enabled: true
+  chunk_size: 1000
+  chunk_overlap: 200
+  # Embedding provider: "local" (sentence-transformers) or "openai"
+  embedding_provider: "local"
+  embedding_model: "all-MiniLM-L6-v2"
+  # Vector store: "chroma" or "faiss"
+  vector_store: "chroma"
+  persist_directory: "./data/vector_store"
+  # Max number of chunks to retrieve
+  top_k: 5
+
+# ------------------------------------------------------------
+# File Upload
+# ------------------------------------------------------------
+uploads:
+  max_file_size_mb: 50
+  allowed_extensions:
+    - ".txt"
+    - ".pdf"
+    - ".md"
+    - ".csv"
+    - ".json"
+    - ".py"
+    - ".js"
+    - ".html"
+    - ".docx"
+  upload_directory: "./data/uploads"
