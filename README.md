@@ -19,7 +19,7 @@ A modular, agentic chatbot with RAG support and multi-LLM provider integration. 
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-username/nexus-chat.git
+git clone https://github.com/aashiquear/nexus-chat.git
 cd nexus-chat
 
 # 2. Configure
