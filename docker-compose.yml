@@ -38,7 +38,6 @@ services:
 
   mcp-database:
     build: ./examples/mcp-database-server
-    container_name: mcp-database
     networks:
       - nexus-net
     profiles:

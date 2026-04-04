@@ -16,7 +16,6 @@ networks:
 services:
   mcp-database:
     build: .
-    container_name: mcp-database
     networks:
       - nexus-net
     ports:
