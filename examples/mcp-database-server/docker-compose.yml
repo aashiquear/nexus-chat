@@ -1,0 +1,35 @@
+# Run the MCP database server standalone, connected to the Nexus Chat network.
+#
+# Prerequisites:
+#   docker network create nexus-net    (one-time, or started by nexus-chat compose)
+#
+# Usage:
+#   cd examples/mcp-database-server
+#   docker compose up --build
+#
+# The server will be reachable from Nexus Chat at http://mcp-database:8100
+
+networks:
+  nexus-net:
+    external: true
+
+services:
+  mcp-database:
+    build: .
+    container_name: mcp-database
+    networks:
+      - nexus-net
+    ports:
+      - "8100:8100"
+    volumes:
+      - mcp-db-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8100/health')"]
+      interval: 15s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
+
+volumes:
+  mcp-db-data:

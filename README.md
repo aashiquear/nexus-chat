@@ -169,16 +169,34 @@ Nexus Chat can connect to external services via the [Model Context Protocol (MCP
 
 An example SQLite MCP server is included at `examples/mcp-database-server/`.
 
-```bash
-# 1. Start Nexus Chat + the MCP database server
-docker compose --profile mcp up --build
+**Bundled (easiest):** Start everything together with the `mcp` profile:
 
-# 2. Enable the server in config/settings.yaml
-#    Set mcp_servers.database.enabled to true
-#    Restart Nexus Chat (or it picks it up on next boot)
+```bash
+docker compose --profile mcp up --build
 ```
 
-The database server exposes four tools: `query`, `execute`, `list_tables`, and `describe_table`. Once connected, ask the chatbot things like *"List all tables in the database"* or *"Insert a new note titled 'Hello'"*.
+**Standalone:** Run the MCP server independently and let it join the shared `nexus-net` network:
+
+```bash
+# 1. Start Nexus Chat (creates the nexus-net network)
+docker compose up --build
+
+# 2. In another terminal, start the MCP server
+cd examples/mcp-database-server
+docker compose up --build
+```
+
+Both approaches connect via the `nexus-net` Docker network, so the URL `http://mcp-database:8100` resolves in either case.
+
+Then enable it in `config/settings.yaml`:
+
+```yaml
+mcp_servers:
+  database:
+    enabled: true
+```
+
+Restart Nexus Chat. The database server exposes four tools: `query`, `execute`, `list_tables`, and `describe_table`. Once connected, ask the chatbot things like *"List all tables in the database"* or *"Insert a new note titled 'Hello'"*.
 
 ### Connecting Your Own MCP Server
 
@@ -207,24 +225,39 @@ mcp_servers:
     timeout: 30          # seconds
 ```
 
-**3. (Optional) Add to `docker-compose.yml`:**
+**3. Connect via Docker network:**
+
+*Option A — Bundled in docker-compose.yml:*
 
 ```yaml
 services:
   my-mcp-server:
     build: ./path/to/server
+    networks:
+      - nexus-net
     profiles:
       - mcp
     ports:
       - "9000:9000"
 ```
 
+*Option B — Standalone container on the shared network:*
+
+```bash
+docker run --name my-mcp-server --network nexus-net -p 9000:9000 my-mcp-image
+```
+
 Restart Nexus Chat — the MCP server's tools appear under the "MCP Servers" section in the sidebar.
+
+### Docker Networking
+
+All services (Nexus Chat + MCP servers) share a bridge network called `nexus-net`. The root `docker-compose.yml` creates it automatically. Standalone MCP servers can join it by referencing `nexus-net` as an external network — see `examples/mcp-database-server/docker-compose.yml` for a ready-made template.
 
 ### Turning MCP Servers On/Off
 
 - **Config-level:** Set `enabled: false` in `settings.yaml` and restart.
-- **Docker-level:** Run without the `mcp` profile: `docker compose up` (no `--profile mcp`).
+- **Docker-level (bundled):** Run without the `mcp` profile: `docker compose up` (no `--profile mcp`).
+- **Docker-level (standalone):** Stop the standalone container: `docker compose down` in its directory.
 - **Per-conversation:** Toggle individual MCP tools on/off in the sidebar, just like built-in tools.
 
 ## Project Structure
