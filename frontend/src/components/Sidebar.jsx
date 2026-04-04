@@ -2,6 +2,7 @@ import React from 'react'
 import {
   Check, Calculator, Search, Code2, Clock, FileText,
   Wrench, Plus, Trash2, Paperclip, MessageSquarePlus,
+  Database, Server, RefreshCw,
 } from 'lucide-react'
 
 const ICON_MAP = {
@@ -10,6 +11,8 @@ const ICON_MAP = {
   code: Code2,
   clock: Clock,
   'file-text': FileText,
+  database: Database,
+  server: Server,
 }
 
 export default function Sidebar({
@@ -19,6 +22,8 @@ export default function Sidebar({
   tools,
   selectedTools,
   onToggleTool,
+  mcpServers,
+  onReconnectMCP,
   files,
   selectedFiles,
   onToggleFile,
@@ -85,11 +90,11 @@ export default function Sidebar({
         </div>
 
         <div className="sidebar-body">
-          {/* Tools */}
+          {/* Built-in Tools */}
           <div className="sidebar-section">
             <div className="sidebar-section-label">Tools</div>
           </div>
-          {tools.map((tool) => {
+          {tools.filter((t) => t.source !== 'mcp').map((tool) => {
             const active = selectedTools.includes(tool.id)
             const Icon = ICON_MAP[tool.icon] || Wrench
             return (
@@ -109,6 +114,81 @@ export default function Sidebar({
               </div>
             )
           })}
+
+          {/* MCP Servers */}
+          {mcpServers && mcpServers.length > 0 && (
+            <>
+              <div className="sidebar-section" style={{ marginTop: 8 }}>
+                <div className="sidebar-section-label">MCP Servers</div>
+              </div>
+              {mcpServers.map((srv) => {
+                const mcpTools = tools.filter(
+                  (t) => t.source === 'mcp' && t.server === srv.id
+                )
+                return (
+                  <div key={srv.id} style={{ marginBottom: 4 }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '4px 16px',
+                        fontSize: 12,
+                      }}
+                    >
+                      <Server size={13} style={{ opacity: 0.6 }} />
+                      <span style={{ fontWeight: 500, flex: 1 }}>{srv.name}</span>
+                      <span
+                        style={{
+                          width: 7,
+                          height: 7,
+                          borderRadius: '50%',
+                          background: srv.connected ? 'var(--success)' : 'var(--error)',
+                          display: 'inline-block',
+                        }}
+                        title={srv.connected ? 'Connected' : 'Disconnected'}
+                      />
+                      {!srv.connected && (
+                        <button
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: 'var(--text-tertiary)',
+                            padding: 2,
+                          }}
+                          onClick={() => onReconnectMCP(srv.id)}
+                          title="Reconnect"
+                        >
+                          <RefreshCw size={12} />
+                        </button>
+                      )}
+                    </div>
+                    {mcpTools.map((tool) => {
+                      const active = selectedTools.includes(tool.id)
+                      const Icon = ICON_MAP[tool.icon] || Database
+                      return (
+                        <div
+                          key={tool.id}
+                          className="toggle-item"
+                          onClick={() => onToggleTool(tool.id)}
+                        >
+                          <div className={`toggle-check ${active ? 'active' : ''}`}>
+                            {active && <Check size={11} color="#fff" strokeWidth={3} />}
+                          </div>
+                          <Icon size={15} className="toggle-icon" />
+                          <div>
+                            <div className="toggle-label">{tool.name}</div>
+                            <div className="toggle-desc">{tool.description}</div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })}
+            </>
+          )}
 
           {/* Files */}
           <div className="sidebar-section" style={{ marginTop: 8 }}>

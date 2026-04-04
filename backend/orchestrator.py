@@ -7,12 +7,13 @@ import json
 import logging
 from typing import AsyncIterator
 
-from backend.config import get_config, get_enabled_providers, get_enabled_tools
+from backend.config import get_config, get_enabled_providers, get_enabled_tools, get_enabled_mcp_servers
 from backend.providers import (
     BaseLLMProvider, ChatRequest, Message, StreamChunk, ToolDefinition,
     get_provider_class,
 )
 from backend.tools import BaseTool, get_tool_class
+from backend.mcp import MCPManager
 from backend.rag.engine import RAGEngine
 
 logger = logging.getLogger(__name__)
@@ -25,6 +26,7 @@ class ChatOrchestrator:
         self.config = get_config()
         self._providers: dict[str, BaseLLMProvider] = {}
         self._tools: dict[str, BaseTool] = {}
+        self._mcp: MCPManager = MCPManager()
         self._rag: RAGEngine | None = None
         self._init_providers()
         self._init_tools()
@@ -65,8 +67,15 @@ class ChatOrchestrator:
                 })
         return models
 
+    async def init_mcp(self):
+        """Initialize MCP server connections (must be awaited)."""
+        mcp_config = get_enabled_mcp_servers()
+        if mcp_config:
+            await self._mcp.init_from_config(mcp_config)
+            logger.info("MCP manager initialized with %d server(s)", len(mcp_config))
+
     def get_available_tools(self) -> list[dict]:
-        """Return all available tools."""
+        """Return all available tools (built-in + MCP)."""
         tool_configs = get_enabled_tools()
         result = []
         for name, tool in self._tools.items():
@@ -76,8 +85,19 @@ class ChatOrchestrator:
                 "name": cfg.get("name", name),
                 "description": cfg.get("description", tool.description),
                 "icon": cfg.get("icon", "wrench"),
+                "source": "builtin",
             })
+        # Append MCP tools
+        result.extend(self._mcp.get_tool_info())
         return result
+
+    def get_mcp_servers(self) -> list[dict]:
+        """Return status of all MCP servers."""
+        return self._mcp.get_servers_info()
+
+    async def reconnect_mcp(self, server_id: str) -> bool:
+        """Reconnect a specific MCP server."""
+        return await self._mcp.reconnect(server_id)
 
     def _resolve_provider(self, model_id: str) -> tuple[str, BaseLLMProvider] | None:
         """Find which provider hosts the given model."""
@@ -88,7 +108,17 @@ class ChatOrchestrator:
         return None
 
     async def _execute_tool(self, tool_name: str, arguments: dict) -> str:
-        """Execute a tool and return its result."""
+        """Execute a tool (built-in or MCP) and return its result."""
+        # Check if it's an MCP tool (format: mcp:<server>:<name>)
+        if tool_name.startswith("mcp:"):
+            parts = tool_name.split(":", 2)
+            if len(parts) == 3:
+                _, server_id, remote_name = parts
+                try:
+                    return await self._mcp.call_tool(server_id, remote_name, arguments)
+                except Exception as e:
+                    return json.dumps({"error": str(e)})
+
         tool = self._tools.get(tool_name)
         if not tool:
             return json.dumps({"error": f"Tool '{tool_name}' not found"})
@@ -139,14 +169,27 @@ class ChatOrchestrator:
             yield {"type": "error", "content": f"Provider '{provider_name}' is not configured. Check your API key."}
             return
 
-        # Build tool definitions
+        # Build tool definitions (built-in + MCP)
         tool_defs = []
         if selected_tools:
-            for tool_name in selected_tools:
-                tool = self._tools.get(tool_name)
-                if tool:
-                    td = tool.to_definition()
-                    tool_defs.append(ToolDefinition(**td))
+            for tool_id in selected_tools:
+                if tool_id.startswith("mcp:"):
+                    # MCP tool — find its definition from the manager
+                    parts = tool_id.split(":", 2)
+                    if len(parts) == 3:
+                        for mcp_tool in self._mcp.get_all_tools():
+                            if mcp_tool.get("_mcp_server") == parts[1] and mcp_tool["name"] == parts[2]:
+                                tool_defs.append(ToolDefinition(
+                                    name=tool_id,
+                                    description=mcp_tool.get("description", ""),
+                                    parameters=mcp_tool.get("parameters", {"type": "object", "properties": {}}),
+                                ))
+                                break
+                else:
+                    tool = self._tools.get(tool_id)
+                    if tool:
+                        td = tool.to_definition()
+                        tool_defs.append(ToolDefinition(**td))
 
         # Get RAG context
         last_user_msg = ""

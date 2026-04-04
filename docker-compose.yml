@@ -23,3 +23,25 @@ services:
       timeout: 5s
       start_period: 15s
       retries: 3
+
+  # ── MCP Servers (optional, enable with: docker compose --profile mcp up) ──
+
+  mcp-database:
+    build: ./examples/mcp-database-server
+    container_name: mcp-database
+    profiles:
+      - mcp
+    ports:
+      - "8100:8100"
+    volumes:
+      - mcp-db-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8100/health')"]
+      interval: 15s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
+
+volumes:
+  mcp-db-data:

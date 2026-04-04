@@ -6,6 +6,7 @@ A modular, agentic chatbot with RAG support and multi-LLM provider integration. 
 
 - **Multi-LLM Support** — Anthropic Claude, OpenAI GPT, and Ollama (local/remote) out of the box
 - **Agentic Tool System** — Built-in tools (calculator, code executor, web search, file reader, date/time) with a simple plugin API to add your own
+- **MCP Server Integration** — Connect external services via the Model Context Protocol; tools from MCP servers appear in the sidebar alongside built-in tools
 - **RAG Integration** — Upload files and get context-aware responses using ChromaDB vector storage
 - **Streaming Chat** — Real-time WebSocket streaming for responsive conversations
 - **Clean UI** — Minimal, warm-toned interface with sidebar for model/tool/file selection
@@ -160,6 +161,72 @@ import backend.tools.my_tool
 
 Restart the server — the tool appears in the sidebar.
 
+## MCP Server Integration
+
+Nexus Chat can connect to external services via the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/). MCP servers expose tools over HTTP JSON-RPC 2.0, and their tools appear in the sidebar alongside built-in tools — users can toggle them on/off per conversation.
+
+### Quick Start with the Example Database Server
+
+An example SQLite MCP server is included at `examples/mcp-database-server/`.
+
+```bash
+# 1. Start Nexus Chat + the MCP database server
+docker compose --profile mcp up --build
+
+# 2. Enable the server in config/settings.yaml
+#    Set mcp_servers.database.enabled to true
+#    Restart Nexus Chat (or it picks it up on next boot)
+```
+
+The database server exposes four tools: `query`, `execute`, `list_tables`, and `describe_table`. Once connected, ask the chatbot things like *"List all tables in the database"* or *"Insert a new note titled 'Hello'"*.
+
+### Connecting Your Own MCP Server
+
+Any HTTP service that implements the MCP JSON-RPC interface can be connected:
+
+**1. Implement the `/rpc` endpoint** with three methods:
+
+| Method | Description |
+|---|---|
+| `initialize` | Handshake — return server name and version |
+| `tools/list` | Return an array of tool definitions (name, description, JSON Schema parameters) |
+| `tools/call` | Execute a tool by name with arguments, return the result |
+
+Plus a `GET /health` endpoint for liveness checks.
+
+**2. Add it to `config/settings.yaml`:**
+
+```yaml
+mcp_servers:
+  my_server:
+    enabled: true
+    name: "My Service"
+    description: "Does something useful"
+    url: "http://my-mcp-server:9000"
+    icon: "server"       # Lucide icon name
+    timeout: 30          # seconds
+```
+
+**3. (Optional) Add to `docker-compose.yml`:**
+
+```yaml
+services:
+  my-mcp-server:
+    build: ./path/to/server
+    profiles:
+      - mcp
+    ports:
+      - "9000:9000"
+```
+
+Restart Nexus Chat — the MCP server's tools appear under the "MCP Servers" section in the sidebar.
+
+### Turning MCP Servers On/Off
+
+- **Config-level:** Set `enabled: false` in `settings.yaml` and restart.
+- **Docker-level:** Run without the `mcp` profile: `docker compose up` (no `--profile mcp`).
+- **Per-conversation:** Toggle individual MCP tools on/off in the sidebar, just like built-in tools.
+
 ## Project Structure
 
 ```
@@ -167,7 +234,7 @@ nexus-chat/
 ├── backend/
 │   ├── main.py              # FastAPI app, routes, WebSocket
 │   ├── config.py             # YAML config loader
-│   ├── orchestrator.py        # Chat orchestrator (LLM + tools + RAG)
+│   ├── orchestrator.py        # Chat orchestrator (LLM + tools + MCP + RAG)
 │   ├── providers/
 │   │   ├── __init__.py        # Base class + registry
 │   │   ├── anthropic_provider.py
@@ -177,6 +244,9 @@ nexus-chat/
 │   │   ├── __init__.py        # Base class + registry
 │   │   ├── builtin.py         # Calculator, code exec, search, etc.
 │   │   └── example_tool.py    # Template for custom tools
+│   ├── mcp/
+│   │   ├── __init__.py        # MCP module entry
+│   │   └── client.py          # MCPClient + MCPManager
 │   └── rag/
 │       ├── __init__.py
 │       └── engine.py          # Document ingestion + retrieval
@@ -185,7 +255,7 @@ nexus-chat/
 │   │   ├── App.jsx            # Main app component
 │   │   ├── main.jsx           # Entry point
 │   │   ├── components/
-│   │   │   ├── Sidebar.jsx    # Model/tool/file selection
+│   │   │   ├── Sidebar.jsx    # Model/tool/MCP/file selection
 │   │   │   ├── ChatMessage.jsx
 │   │   │   └── ChatInput.jsx
 │   │   ├── hooks/
@@ -196,6 +266,11 @@ nexus-chat/
 │   ├── index.html
 │   ├── package.json
 │   └── vite.config.js
+├── examples/
+│   └── mcp-database-server/   # Example MCP server (SQLite)
+│       ├── server.py
+│       ├── Dockerfile
+│       └── README.md
 ├── config/
 │   └── settings.yaml          # Main configuration file
 ├── data/
@@ -228,6 +303,10 @@ nexus-chat/
                                     │  │  └─────────┘ │• Custom  │  │  │
                                     │  │              └──────────┘  │  │
                                     │  │  ┌──────────────────────┐  │  │
+                                    │  │  │  MCP Manager         │  │  │
+                                    │  │  │  JSON-RPC clients    │──┼──┼──► MCP Servers
+                                    │  │  └──────────────────────┘  │  │   (Docker / remote)
+                                    │  │  ┌──────────────────────┐  │  │
                                     │  │  │  RAG Engine          │  │  │
                                     │  │  │  ChromaDB + Chunking │  │  │
                                     │  │  └──────────────────────┘  │  │
@@ -247,6 +326,8 @@ nexus-chat/
 | `/api/files` | GET | List uploaded files |
 | `/api/upload` | POST | Upload a file (multipart) |
 | `/api/files/{name}` | DELETE | Delete an uploaded file |
+| `/api/mcp/servers` | GET | List MCP servers and status |
+| `/api/mcp/servers/{id}/reconnect` | POST | Reconnect an MCP server |
 | `/ws/chat` | WebSocket | Streaming chat |
 
 ### WebSocket Message Format
@@ -275,7 +356,7 @@ nexus-chat/
 
 - [ ] Conversation history persistence (SQLite)
 - [ ] Multi-user authentication
-- [ ] MCP (Model Context Protocol) server integration
+- [x] MCP (Model Context Protocol) server integration
 - [ ] Mobile-friendly PWA
 - [ ] Electron desktop app (Windows/macOS/Linux)
 - [ ] iOS / Android via Capacitor or React Native wrapper

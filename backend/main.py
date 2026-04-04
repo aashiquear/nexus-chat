@@ -30,6 +30,7 @@ import backend.providers.openai_provider
 import backend.providers.ollama_provider
 import backend.tools.builtin
 import backend.tools.example_tool
+import backend.mcp  # noqa: F401 – MCP client module
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -58,6 +59,14 @@ orchestrator = ChatOrchestrator()
 # Ensure upload directory exists
 upload_dir = Path(config.get("uploads", {}).get("upload_directory", "./data/uploads"))
 upload_dir.mkdir(parents=True, exist_ok=True)
+
+
+# ------ Startup event: initialize async services ------
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize MCP server connections on startup."""
+    await orchestrator.init_mcp()
 
 
 # ------ REST API Endpoints ------
@@ -140,6 +149,23 @@ async def delete_file(filename: str):
         await orchestrator.rag_engine.delete_file(filename)
 
     return {"deleted": filename}
+
+
+# ------ MCP Server Endpoints ------
+
+@app.get("/api/mcp/servers")
+async def list_mcp_servers():
+    """Return all configured MCP servers and their status."""
+    return {"servers": orchestrator.get_mcp_servers()}
+
+
+@app.post("/api/mcp/servers/{server_id}/reconnect")
+async def reconnect_mcp_server(server_id: str):
+    """Attempt to reconnect to an MCP server."""
+    ok = await orchestrator.reconnect_mcp(server_id)
+    if not ok:
+        raise HTTPException(404, f"MCP server '{server_id}' not found or unreachable")
+    return {"status": "connected", "server": server_id}
 
 
 # ------ WebSocket Chat ------
