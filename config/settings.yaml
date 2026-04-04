@@ -120,6 +120,27 @@ tools:
     icon: "file-text"
 
 # ------------------------------------------------------------
+# MCP Servers (Model Context Protocol)
+# ------------------------------------------------------------
+# External services that expose tools via the MCP protocol.
+# Each server runs independently (e.g. in a Docker container)
+# and Nexus Chat connects to it over HTTP JSON-RPC.
+# To add a new MCP server:
+#   1. Deploy the server (Docker, bare-metal, etc.)
+#   2. Add an entry here with its URL
+#   3. Restart Nexus Chat — its tools appear in the sidebar
+# ------------------------------------------------------------
+mcp_servers:
+  # Example: SQLite database server (see examples/mcp-database-server)
+  database:
+    enabled: false
+    name: "Database"
+    description: "Query and manage a SQLite database"
+    url: "http://mcp-database:8100"   # Docker service name
+    icon: "database"
+    timeout: 30
+
+# ------------------------------------------------------------
 # RAG (Retrieval-Augmented Generation)
 # ------------------------------------------------------------
 rag:

@@ -1,0 +1,218 @@
+"""
+MCP client – connects to remote MCP servers via HTTP JSON-RPC 2.0.
+
+Each MCP server exposes tools through:
+  POST /rpc  — JSON-RPC 2.0 endpoint
+    • initialize        → handshake
+    • tools/list         → discover available tools
+    • tools/call         → execute a tool
+
+MCPClient wraps a single server; MCPManager owns all configured servers.
+"""
+
+import json
+import logging
+from typing import Any
+
+import httpx
+
+logger = logging.getLogger(__name__)
+
+
+class MCPClient:
+    """Client for a single MCP server."""
+
+    def __init__(self, server_id: str, config: dict):
+        self.server_id = server_id
+        self.url: str = config["url"].rstrip("/")
+        self.name: str = config.get("name", server_id)
+        self.description: str = config.get("description", "")
+        self.icon: str = config.get("icon", "server")
+        self._tools: list[dict] = []
+        self._connected = False
+        self._timeout = config.get("timeout", 30)
+
+    # ------------------------------------------------------------------
+    # JSON-RPC helper
+    # ------------------------------------------------------------------
+    async def _rpc(self, method: str, params: dict | None = None) -> Any:
+        """Send a JSON-RPC 2.0 request to the MCP server."""
+        payload = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": method,
+            "params": params or {},
+        }
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            resp = await client.post(
+                f"{self.url}/rpc",
+                json=payload,
+                headers={"Content-Type": "application/json"},
+            )
+            resp.raise_for_status()
+            body = resp.json()
+            if "error" in body:
+                raise RuntimeError(
+                    f"MCP error from {self.server_id}: {body['error']}"
+                )
+            return body.get("result")
+
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
+    async def connect(self) -> bool:
+        """Initialize connection and discover tools."""
+        try:
+            result = await self._rpc("initialize", {
+                "client": "nexus-chat",
+                "version": "0.1.0",
+            })
+            logger.info(
+                "MCP server '%s' initialized: %s",
+                self.server_id,
+                result,
+            )
+            await self.refresh_tools()
+            self._connected = True
+            return True
+        except Exception as e:
+            logger.warning("Failed to connect to MCP server '%s': %s", self.server_id, e)
+            self._connected = False
+            return False
+
+    async def refresh_tools(self) -> list[dict]:
+        """Fetch the tool list from the server."""
+        result = await self._rpc("tools/list")
+        self._tools = result.get("tools", []) if result else []
+        logger.info(
+            "MCP server '%s' provides %d tool(s)", self.server_id, len(self._tools)
+        )
+        return self._tools
+
+    async def call_tool(self, tool_name: str, arguments: dict) -> str:
+        """Execute a tool on the remote MCP server."""
+        result = await self._rpc("tools/call", {
+            "name": tool_name,
+            "arguments": arguments,
+        })
+        if isinstance(result, str):
+            return result
+        return json.dumps(result)
+
+    # ------------------------------------------------------------------
+    # Accessors
+    # ------------------------------------------------------------------
+    @property
+    def is_connected(self) -> bool:
+        return self._connected
+
+    @property
+    def tools(self) -> list[dict]:
+        return list(self._tools)
+
+    async def health_check(self) -> bool:
+        """Quick liveness check."""
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                resp = await client.get(f"{self.url}/health")
+                return resp.status_code == 200
+        except Exception:
+            return False
+
+
+class MCPManager:
+    """Manages all configured MCP server connections."""
+
+    def __init__(self):
+        self._clients: dict[str, MCPClient] = {}
+
+    async def init_from_config(self, mcp_config: dict):
+        """Create clients for every enabled MCP server in the config."""
+        for server_id, cfg in mcp_config.items():
+            if not cfg.get("enabled", False):
+                continue
+            client = MCPClient(server_id, cfg)
+            connected = await client.connect()
+            self._clients[server_id] = client
+            if connected:
+                logger.info("MCP server '%s' ready (%d tools)", server_id, len(client.tools))
+            else:
+                logger.warning("MCP server '%s' not reachable – will retry on demand", server_id)
+
+    # ------------------------------------------------------------------
+    # Tool discovery
+    # ------------------------------------------------------------------
+    def get_all_tools(self) -> list[dict]:
+        """Return tool definitions from all connected MCP servers.
+
+        Each tool dict has:
+          name, description, parameters (JSON Schema),
+          plus _mcp_server to track provenance.
+        """
+        tools = []
+        for server_id, client in self._clients.items():
+            if not client.is_connected:
+                continue
+            for tool in client.tools:
+                tools.append({
+                    **tool,
+                    "_mcp_server": server_id,
+                })
+        return tools
+
+    def get_tool_info(self) -> list[dict]:
+        """Return metadata suitable for the /api/tools endpoint."""
+        items = []
+        for server_id, client in self._clients.items():
+            for tool in client.tools:
+                items.append({
+                    "id": f"mcp:{server_id}:{tool['name']}",
+                    "name": tool.get("name", ""),
+                    "description": tool.get("description", ""),
+                    "icon": client.icon,
+                    "source": "mcp",
+                    "server": server_id,
+                    "server_name": client.name,
+                    "connected": client.is_connected,
+                })
+        return items
+
+    async def call_tool(self, server_id: str, tool_name: str, arguments: dict) -> str:
+        """Route a tool call to the correct MCP server."""
+        client = self._clients.get(server_id)
+        if not client:
+            return json.dumps({"error": f"MCP server '{server_id}' not found"})
+        if not client.is_connected:
+            # Try reconnecting once
+            await client.connect()
+            if not client.is_connected:
+                return json.dumps({"error": f"MCP server '{server_id}' is not reachable"})
+        return await client.call_tool(tool_name, arguments)
+
+    def get_servers_info(self) -> list[dict]:
+        """Return status info for all configured MCP servers."""
+        servers = []
+        for server_id, client in self._clients.items():
+            servers.append({
+                "id": server_id,
+                "name": client.name,
+                "description": client.description,
+                "url": client.url,
+                "icon": client.icon,
+                "connected": client.is_connected,
+                "tools": [t["name"] for t in client.tools],
+            })
+        return servers
+
+    async def reconnect(self, server_id: str) -> bool:
+        """Attempt to reconnect a specific MCP server."""
+        client = self._clients.get(server_id)
+        if not client:
+            return False
+        return await client.connect()
+
+    async def reconnect_all(self):
+        """Attempt to reconnect all disconnected servers."""
+        for client in self._clients.values():
+            if not client.is_connected:
+                await client.connect()

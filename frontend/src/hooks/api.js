@@ -35,3 +35,16 @@ export async function deleteFile(filename) {
   })
   return res.json()
 }
+
+export async function fetchMCPServers() {
+  const res = await fetch(`${BASE}/api/mcp/servers`)
+  const data = await res.json()
+  return data.servers || []
+}
+
+export async function reconnectMCPServer(serverId) {
+  const res = await fetch(`${BASE}/api/mcp/servers/${encodeURIComponent(serverId)}/reconnect`, {
+    method: 'POST',
+  })
+  return res.json()
+}

@@ -74,3 +74,13 @@ def get_enabled_tools() -> dict:
         name: tool for name, tool in tools.items()
         if tool.get("enabled", False)
     }
+
+
+def get_enabled_mcp_servers() -> dict:
+    """Return only enabled MCP server configs."""
+    cfg = get_config()
+    servers = cfg.get("mcp_servers", {})
+    return {
+        name: srv for name, srv in servers.items()
+        if srv.get("enabled", False)
+    }

@@ -4,13 +4,14 @@ import Sidebar from './components/Sidebar'
 import ChatMessage, { TypingIndicator } from './components/ChatMessage'
 import ChatInput from './components/ChatInput'
 import { useChat } from './hooks/useChat'
-import { fetchModels, fetchTools, fetchFiles, uploadFile, deleteFile } from './hooks/api'
+import { fetchModels, fetchTools, fetchFiles, uploadFile, deleteFile, fetchMCPServers, reconnectMCPServer } from './hooks/api'
 
 export default function App() {
   // State
   const [models, setModels] = useState([])
   const [tools, setTools] = useState([])
   const [files, setFiles] = useState([])
+  const [mcpServers, setMcpServers] = useState([])
   const [selectedModel, setSelectedModel] = useState('')
   const [selectedTools, setSelectedTools] = useState([])
   const [selectedFiles, setSelectedFiles] = useState([])
@@ -31,10 +32,13 @@ export default function App() {
 
   const loadData = async () => {
     try {
-      const [m, t, f] = await Promise.all([fetchModels(), fetchTools(), fetchFiles()])
+      const [m, t, f, mcp] = await Promise.all([
+        fetchModels(), fetchTools(), fetchFiles(), fetchMCPServers(),
+      ])
       setModels(m)
       setTools(t)
       setFiles(f)
+      setMcpServers(mcp)
 
       // Default to first available model
       const available = m.find((x) => x.available)
@@ -78,6 +82,18 @@ export default function App() {
       }
     } catch (err) {
       alert(`Upload failed: ${err.message}`)
+    }
+  }
+
+  const handleReconnectMCP = async (serverId) => {
+    try {
+      await reconnectMCPServer(serverId)
+      // Refresh tools and server list
+      const [t, mcp] = await Promise.all([fetchTools(), fetchMCPServers()])
+      setTools(t)
+      setMcpServers(mcp)
+    } catch (err) {
+      console.error('MCP reconnect failed:', err)
     }
   }
 
@@ -228,6 +244,8 @@ export default function App() {
         tools={tools}
         selectedTools={selectedTools}
         onToggleTool={toggleTool}
+        mcpServers={mcpServers}
+        onReconnectMCP={handleReconnectMCP}
         files={files}
         selectedFiles={selectedFiles}
         onToggleFile={toggleFile}
