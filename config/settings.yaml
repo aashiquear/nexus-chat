@@ -55,16 +55,16 @@ providers:
     default_model: "llama3.2"
     models:
       # --- Cloud models (Ollama Cloud) ---
-      - id: "gemma4:latest"
+      - id: "gemma4:31b-cloud"
         name: "Gemma 4"
         max_tokens: 4096
-      - id: "ministral-3:latest"
+      - id: "ministral-3:14b-cloud"
         name: "Ministral 3"
         max_tokens: 4096
-      - id: "gpt-oss:latest"
+      - id: "gpt-oss:120b-cloud"
         name: "GPT-OSS"
         max_tokens: 4096
-      - id: "devstral-2:latest"
+      - id: "devstral-2:123b-cloud"
         name: "Devstral 2"
         max_tokens: 4096
       # --- Local models ---
