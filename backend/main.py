@@ -67,8 +67,11 @@ upload_dir.mkdir(parents=True, exist_ok=True)
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize MCP server connections on startup."""
+    """Initialize MCP connections and sync uploaded files into the vector store."""
     await orchestrator.init_mcp()
+    # Re-ingest any uploaded files missing from the vector store (e.g. after restart)
+    if orchestrator.rag_engine:
+        await orchestrator.rag_engine.sync_uploads(upload_dir)
 
 
 # ------ REST API Endpoints ------

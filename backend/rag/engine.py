@@ -28,11 +28,11 @@ class RAGEngine:
             return self._collection
         try:
             import chromadb
-            client = chromadb.Client(
-                chromadb.Settings(
-                    persist_directory=self.persist_dir,
-                    anonymized_telemetry=False,
-                )
+            # Use PersistentClient so embeddings survive container restarts.
+            # chromadb.Client() is ephemeral (in-memory only).
+            client = chromadb.PersistentClient(
+                path=self.persist_dir,
+                settings=chromadb.Settings(anonymized_telemetry=False),
             )
             self._collection = client.get_or_create_collection(
                 name="nexus_docs",
@@ -170,3 +170,25 @@ class RAGEngine:
             return sorted(sources)
         except Exception:
             return []
+
+    async def sync_uploads(self, upload_dir: Path) -> dict:
+        """Re-ingest any uploaded files that are missing from the vector store.
+
+        Called on startup so that files persisted on disk but absent from
+        the vector store (e.g. after a container restart with a stale or
+        previously-ephemeral DB) are automatically indexed.
+        """
+        if not upload_dir.is_dir():
+            return {"synced": 0}
+
+        indexed = set(await self.list_files())
+        synced = 0
+        for filepath in upload_dir.iterdir():
+            if filepath.is_file() and filepath.name not in indexed:
+                logger.info("Re-ingesting uploaded file: %s", filepath.name)
+                await self.ingest_file(filepath)
+                synced += 1
+
+        if synced:
+            logger.info("Synced %d file(s) into vector store", synced)
+        return {"synced": synced}
