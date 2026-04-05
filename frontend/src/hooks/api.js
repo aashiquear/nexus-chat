@@ -48,3 +48,33 @@ export async function reconnectMCPServer(serverId) {
   })
   return res.json()
 }
+
+// ---- Conversations ----
+
+export async function fetchConversations() {
+  const res = await fetch(`${BASE}/api/conversations`)
+  const data = await res.json()
+  return data.conversations || []
+}
+
+export async function fetchConversation(id) {
+  const res = await fetch(`${BASE}/api/conversations/${encodeURIComponent(id)}`)
+  if (!res.ok) return null
+  return res.json()
+}
+
+export async function saveConversation({ id, messages, model }) {
+  const res = await fetch(`${BASE}/api/conversations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, messages, model }),
+  })
+  return res.json()
+}
+
+export async function deleteConversation(id) {
+  const res = await fetch(`${BASE}/api/conversations/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  })
+  return res.json()
+}

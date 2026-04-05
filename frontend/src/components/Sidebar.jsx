@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
 import {
   Check, Calculator, Search, Code2, Clock, FileText,
-  Wrench, Plus, Trash2, Paperclip, MessageSquarePlus,
+  Wrench, Trash2, Paperclip, MessageSquarePlus,
   Database, Server, RefreshCw, ChevronDown, ChevronRight, Image,
+  MessageCircle,
 } from 'lucide-react'
 
 const ICON_MAP = {
@@ -53,6 +54,10 @@ export default function Sidebar({
   onToggleFile,
   onUpload,
   onDeleteFile,
+  conversations,
+  activeConversationId,
+  onSelectConversation,
+  onDeleteConversation,
   onNewChat,
   isOpen,
   onClose,
@@ -95,6 +100,46 @@ export default function Sidebar({
           <MessageSquarePlus size={15} />
           New Conversation
         </button>
+
+        {/* Conversation threads */}
+        {conversations && conversations.length > 0 && (
+          <CollapsibleSection
+            label="Conversations"
+            count={conversations.length}
+            defaultOpen
+          >
+            <div className="thread-list">
+              {conversations.map((conv) => {
+                const isActive = conv.id === activeConversationId
+                return (
+                  <div
+                    key={conv.id}
+                    className={`thread-item ${isActive ? 'active' : ''}`}
+                    onClick={() => onSelectConversation(conv.id)}
+                  >
+                    <MessageCircle size={13} className="thread-icon" />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="thread-title">{conv.title}</div>
+                      <div className="thread-meta">
+                        {conv.message_count} messages
+                      </div>
+                    </div>
+                    <button
+                      className="thread-delete"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onDeleteConversation(conv.id)
+                      }}
+                      title="Delete conversation"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </CollapsibleSection>
+        )}
 
         {/* Model selector */}
         <div className="sidebar-section">
@@ -145,7 +190,7 @@ export default function Sidebar({
 
           {/* MCP Servers */}
           {mcpServers && mcpServers.length > 0 && (
-            <CollapsibleSection label="MCP Servers" count={mcpToolCount}>
+            <CollapsibleSection label="MCP Servers" count={mcpToolCount} defaultOpen>
               {mcpServers.map((srv) => {
                 const mcpTools = tools.filter(
                   (t) => t.source === 'mcp' && t.server === srv.id

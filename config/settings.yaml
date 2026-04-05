@@ -156,7 +156,7 @@ tools:
 mcp_servers:
   # Example: SQLite database server (see examples/mcp-database-server)
   database:
-    enabled: false
+    enabled: true
     name: "Database"
     description: "Query and manage a SQLite database"
     url: "http://mcp-database:8100"   # Docker service name

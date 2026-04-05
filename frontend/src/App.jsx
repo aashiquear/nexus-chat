@@ -4,7 +4,11 @@ import Sidebar from './components/Sidebar'
 import ChatMessage, { TypingIndicator } from './components/ChatMessage'
 import ChatInput from './components/ChatInput'
 import { useChat } from './hooks/useChat'
-import { fetchModels, fetchTools, fetchFiles, uploadFile, deleteFile, fetchMCPServers, reconnectMCPServer } from './hooks/api'
+import {
+  fetchModels, fetchTools, fetchFiles, uploadFile, deleteFile,
+  fetchMCPServers, reconnectMCPServer,
+  fetchConversations, fetchConversation, saveConversation, deleteConversation,
+} from './hooks/api'
 
 export default function App() {
   // State
@@ -20,6 +24,10 @@ export default function App() {
   const [isTyping, setIsTyping] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
+  // Conversation state
+  const [conversations, setConversations] = useState([])
+  const [activeConversationId, setActiveConversationId] = useState(null)
+
   const chatEndRef = useRef(null)
   const streamBufferRef = useRef('')
   const { connect, sendMessage, isConnected, isStreaming } = useChat()
@@ -32,13 +40,15 @@ export default function App() {
 
   const loadData = async () => {
     try {
-      const [m, t, f, mcp] = await Promise.all([
+      const [m, t, f, mcp, convos] = await Promise.all([
         fetchModels(), fetchTools(), fetchFiles(), fetchMCPServers(),
+        fetchConversations(),
       ])
       setModels(m)
       setTools(t)
       setFiles(f)
       setMcpServers(mcp)
+      setConversations(convos)
 
       // Default to first available model
       const available = m.find((x) => x.available)
@@ -76,7 +86,6 @@ export default function App() {
       await uploadFile(file)
       const updatedFiles = await fetchFiles()
       setFiles(updatedFiles)
-      // Auto-select newly uploaded file
       if (!selectedFiles.includes(file.name)) {
         setSelectedFiles((prev) => [...prev, file.name])
       }
@@ -88,7 +97,6 @@ export default function App() {
   const handleReconnectMCP = async (serverId) => {
     try {
       await reconnectMCPServer(serverId)
-      // Refresh tools and server list
       const [t, mcp] = await Promise.all([fetchTools(), fetchMCPServers()])
       setTools(t)
       setMcpServers(mcp)
@@ -104,6 +112,53 @@ export default function App() {
       setSelectedFiles((prev) => prev.filter((n) => n !== filename))
     } catch (err) {
       console.error('Delete failed:', err)
+    }
+  }
+
+  // ---- Conversation persistence ----
+
+  const persistConversation = useCallback(async (msgs, convId) => {
+    if (!msgs || msgs.length === 0) return null
+    try {
+      const result = await saveConversation({
+        id: convId || undefined,
+        messages: msgs,
+        model: selectedModel,
+      })
+      // Refresh the sidebar list
+      const convos = await fetchConversations()
+      setConversations(convos)
+      return result.id
+    } catch (err) {
+      console.error('Save conversation failed:', err)
+      return convId
+    }
+  }, [selectedModel])
+
+  const handleSelectConversation = async (id) => {
+    try {
+      const data = await fetchConversation(id)
+      if (data) {
+        setMessages(data.messages || [])
+        setActiveConversationId(data.id)
+        if (data.model) setSelectedModel(data.model)
+        setSidebarOpen(false)
+      }
+    } catch (err) {
+      console.error('Failed to load conversation:', err)
+    }
+  }
+
+  const handleDeleteConversation = async (id) => {
+    try {
+      await deleteConversation(id)
+      setConversations((prev) => prev.filter((c) => c.id !== id))
+      if (activeConversationId === id) {
+        setMessages([])
+        setActiveConversationId(null)
+      }
+    } catch (err) {
+      console.error('Delete conversation failed:', err)
     }
   }
 
@@ -129,6 +184,9 @@ export default function App() {
     const toolCalls = []
     const toolResults = []
 
+    // Save reference to current conversation id
+    let currentConvId = activeConversationId
+
     sendMessage(
       {
         messages: apiMessages,
@@ -136,7 +194,7 @@ export default function App() {
         tools: selectedTools,
         files: selectedFiles,
       },
-      (event) => {
+      async (event) => {
         switch (event.type) {
           case 'text':
             streamBufferRef.current += event.content
@@ -168,7 +226,6 @@ export default function App() {
               name: event.name,
               arguments: event.arguments,
             })
-            // Update the assistant message in-place
             setMessages((prev) => {
               const updated = [...prev]
               const lastIdx = updated.length - 1
@@ -205,12 +262,23 @@ export default function App() {
               }
               return updated
             })
-            // Reset buffer for the follow-up response after tool use
             streamBufferRef.current = ''
             break
 
           case 'done':
             setIsTyping(false)
+            // Auto-save conversation when response is complete
+            setMessages((prev) => {
+              // Use a timeout to ensure state is settled
+              setTimeout(async () => {
+                const savedId = await persistConversation(prev, currentConvId)
+                if (savedId && !currentConvId) {
+                  setActiveConversationId(savedId)
+                  currentConvId = savedId
+                }
+              }, 100)
+              return prev
+            })
             break
 
           case 'error':
@@ -219,18 +287,19 @@ export default function App() {
               ...prev,
               {
                 role: 'assistant',
-                content: `⚠️ ${event.content}`,
+                content: `\u26a0\ufe0f ${event.content}`,
               },
             ])
             break
         }
       }
     )
-  }, [inputValue, messages, selectedModel, selectedTools, selectedFiles, sendMessage])
+  }, [inputValue, messages, selectedModel, selectedTools, selectedFiles, sendMessage, activeConversationId, persistConversation])
 
   // New chat
   const handleNewChat = () => {
     setMessages([])
+    setActiveConversationId(null)
     setInputValue('')
     setSidebarOpen(false)
   }
@@ -251,6 +320,10 @@ export default function App() {
         onToggleFile={toggleFile}
         onUpload={handleUpload}
         onDeleteFile={handleDeleteFile}
+        conversations={conversations}
+        activeConversationId={activeConversationId}
+        onSelectConversation={handleSelectConversation}
+        onDeleteConversation={handleDeleteConversation}
         onNewChat={handleNewChat}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}

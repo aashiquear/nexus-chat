@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from backend.config import load_config, get_config
 from backend.orchestrator import ChatOrchestrator
+from backend import conversations
 
 # Import providers and tools to trigger registration
 import backend.providers.anthropic_provider
@@ -167,6 +168,47 @@ async def reconnect_mcp_server(server_id: str):
     if not ok:
         raise HTTPException(404, f"MCP server '{server_id}' not found or unreachable")
     return {"status": "connected", "server": server_id}
+
+
+# ------ Conversation Endpoints ------
+
+from starlette.requests import Request as StarletteRequest
+
+
+@app.get("/api/conversations")
+async def list_conversations_endpoint():
+    """List all saved conversations."""
+    return {"conversations": conversations.list_conversations()}
+
+
+@app.get("/api/conversations/{conversation_id}")
+async def get_conversation_endpoint(conversation_id: str):
+    """Load a specific conversation."""
+    data = conversations.get_conversation(conversation_id)
+    if not data:
+        raise HTTPException(404, "Conversation not found")
+    return data
+
+
+@app.post("/api/conversations")
+async def save_conversation_post(request: StarletteRequest):
+    """Create or update a conversation."""
+    body = await request.json()
+    result = conversations.save_conversation(
+        conversation_id=body.get("id"),
+        messages=body.get("messages", []),
+        model=body.get("model", ""),
+    )
+    return result
+
+
+@app.delete("/api/conversations/{conversation_id}")
+async def delete_conversation_endpoint(conversation_id: str):
+    """Delete a conversation."""
+    ok = conversations.delete_conversation(conversation_id)
+    if not ok:
+        raise HTTPException(404, "Conversation not found")
+    return {"deleted": conversation_id}
 
 
 # ------ WebSocket Chat ------

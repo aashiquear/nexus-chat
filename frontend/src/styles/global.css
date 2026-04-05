@@ -228,6 +228,74 @@ body {
   flex-shrink: 0;
 }
 
+/* ---- Thread List ---- */
+.thread-list {
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.thread-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+  user-select: none;
+  border-left: 2px solid transparent;
+}
+
+.thread-item:hover {
+  background: var(--bg-panel-hover);
+}
+
+.thread-item.active {
+  background: var(--accent-subtle);
+  border-left-color: var(--accent);
+}
+
+.thread-icon {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.thread-item.active .thread-icon {
+  color: var(--accent);
+}
+
+.thread-title {
+  font-size: 12.5px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.thread-meta {
+  font-size: 10.5px;
+  color: var(--text-tertiary);
+  margin-top: 1px;
+}
+
+.thread-delete {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  padding: 2px;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.thread-item:hover .thread-delete {
+  opacity: 1;
+}
+
+.thread-delete:hover {
+  color: var(--error);
+}
+
 /* ---- Collapsible Sidebar Sections ---- */
 .collapsible-section {
   margin-bottom: 2px;
