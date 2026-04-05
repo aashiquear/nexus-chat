@@ -19,13 +19,18 @@ class OllamaProvider(BaseLLMProvider):
     def __init__(self, config: dict):
         super().__init__(config)
         self.base_url = config.get("base_url", "http://localhost:11434")
+        api_key = config.get("api_key", "")
+        # Build auth header for Ollama Cloud (Bearer token)
+        self._headers = {}
+        if api_key and not api_key.startswith("${"):
+            self._headers["Authorization"] = f"Bearer {api_key}"
 
     def is_available(self) -> bool:
         """Check if Ollama server is reachable."""
         try:
             import httpx
             with httpx.Client(timeout=3) as client:
-                resp = client.get(f"{self.base_url}/api/tags")
+                resp = client.get(f"{self.base_url}/api/tags", headers=self._headers)
                 return resp.status_code == 200
         except Exception:
             return False
@@ -37,7 +42,7 @@ class OllamaProvider(BaseLLMProvider):
             return configured
         try:
             with httpx.Client(timeout=5) as client:
-                resp = client.get(f"{self.base_url}/api/tags")
+                resp = client.get(f"{self.base_url}/api/tags", headers=self._headers)
                 if resp.status_code == 200:
                     data = resp.json()
                     return [
@@ -88,6 +93,7 @@ class OllamaProvider(BaseLLMProvider):
                     "POST",
                     f"{self.base_url}/api/chat",
                     json=payload,
+                    headers=self._headers,
                 ) as resp:
                     async for line in resp.aiter_lines():
                         if not line.strip():
@@ -135,7 +141,8 @@ class OllamaProvider(BaseLLMProvider):
         try:
             async with httpx.AsyncClient(timeout=120) as client:
                 resp = await client.post(
-                    f"{self.base_url}/api/chat", json=payload
+                    f"{self.base_url}/api/chat", json=payload,
+                    headers=self._headers,
                 )
                 data = resp.json()
                 return data.get("message", {}).get("content", "")

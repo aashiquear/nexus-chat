@@ -49,13 +49,28 @@ providers:
   ollama:
     enabled: true
     # For local Ollama: http://localhost:11434
-    # For cloud/remote: use the remote URL
+    # For Ollama Cloud: https://ollama.com/api (requires OLLAMA_API_KEY)
     base_url: "${OLLAMA_BASE_URL:-http://host.docker.internal:11434}"
+    api_key: "${OLLAMA_API_KEY}"  # Required for Ollama Cloud, leave empty for local
     default_model: "llama3.2"
     models:
+      # --- Cloud models (Ollama Cloud) ---
+      - id: "gemma4:latest"
+        name: "Gemma 4"
+        max_tokens: 4096
+      - id: "ministral-3:latest"
+        name: "Ministral 3"
+        max_tokens: 4096
+      - id: "gpt-oss:latest"
+        name: "GPT-OSS"
+        max_tokens: 4096
+      - id: "devstral-2:latest"
+        name: "Devstral 2"
+        max_tokens: 4096
+      # --- Local models ---
       - id: "llama4:latest"
         name: "Llama 4"
-        max_tokens: 4096 
+        max_tokens: 4096
       - id: "qwen3.5:27b"
         name: "Qwen 3.5"
         max_tokens: 4096
@@ -118,6 +133,14 @@ tools:
     name: "File Reader"
     description: "Read and parse uploaded files"
     icon: "file-text"
+
+  svg_diagram:
+    enabled: true
+    name: "SVG Diagram"
+    description: "Generate SVG architecture diagrams from descriptions"
+    icon: "image"
+    config:
+      output_dir: "./data/uploads"
 
 # ------------------------------------------------------------
 # MCP Servers (Model Context Protocol)

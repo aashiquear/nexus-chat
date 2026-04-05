@@ -76,24 +76,43 @@ export default function ChatMessage({ message }) {
         ))}
 
         {/* Tool results */}
-        {message.toolResults?.map((tr, i) => (
-          <div key={i} className="tool-card">
-            <div className="tool-card-header" style={{ color: 'var(--success)' }}>
-              <CheckCircle2 size={13} />
-              {tr.name} — result
+        {message.toolResults?.map((tr, i) => {
+          // Check if this is an SVG diagram result
+          let parsed = null
+          try { parsed = JSON.parse(tr.result) } catch {}
+          const isSvg = parsed && parsed.svg && parsed.svg.includes('<svg')
+
+          if (isSvg) {
+            return (
+              <div key={i} className="svg-diagram-card">
+                {parsed.title && (
+                  <div className="svg-diagram-title">{parsed.title}</div>
+                )}
+                <div
+                  className="svg-diagram-render"
+                  dangerouslySetInnerHTML={{ __html: parsed.svg }}
+                />
+                {parsed.filename && (
+                  <div className="svg-diagram-footer">
+                    Saved as {parsed.filename}
+                  </div>
+                )}
+              </div>
+            )
+          }
+
+          return (
+            <div key={i} className="tool-card">
+              <div className="tool-card-header" style={{ color: 'var(--success)' }}>
+                <CheckCircle2 size={13} />
+                {tr.name} — result
+              </div>
+              <div className="tool-card-body">
+                {parsed ? JSON.stringify(parsed, null, 2) : tr.result}
+              </div>
             </div>
-            <div className="tool-card-body">
-              {(() => {
-                try {
-                  const parsed = JSON.parse(tr.result)
-                  return JSON.stringify(parsed, null, 2)
-                } catch {
-                  return tr.result
-                }
-              })()}
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

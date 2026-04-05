@@ -30,6 +30,7 @@ import backend.providers.openai_provider
 import backend.providers.ollama_provider
 import backend.tools.builtin
 import backend.tools.example_tool
+import backend.tools.svg_diagram
 import backend.mcp  # noqa: F401 – MCP client module
 
 logging.basicConfig(level=logging.INFO)

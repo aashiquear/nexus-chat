@@ -228,6 +228,57 @@ body {
   flex-shrink: 0;
 }
 
+/* ---- Collapsible Sidebar Sections ---- */
+.collapsible-section {
+  margin-bottom: 2px;
+}
+
+.collapsible-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 16px 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-body);
+  color: var(--text-tertiary);
+  transition: color 0.15s;
+}
+
+.collapsible-header:hover {
+  color: var(--text-secondary);
+}
+
+.collapsible-chevron {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.collapsible-count {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 600;
+  min-width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.collapsible-body {
+  animation: collapseIn 0.15s ease;
+}
+
+@keyframes collapseIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 /* ---- Main Content ---- */
 .main-content {
   flex: 1;
@@ -434,6 +485,43 @@ body {
   color: var(--text-secondary);
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* SVG Diagram card */
+.svg-diagram-card {
+  margin: 10px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-panel);
+  overflow: hidden;
+}
+
+.svg-diagram-title {
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.svg-diagram-render {
+  padding: 16px;
+  display: flex;
+  justify-content: center;
+  background: #ffffff;
+}
+
+.svg-diagram-render svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.svg-diagram-footer {
+  padding: 6px 14px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  border-top: 1px solid var(--border-light);
+  background: var(--bg-panel-hover);
 }
 
 /* Typing indicator */

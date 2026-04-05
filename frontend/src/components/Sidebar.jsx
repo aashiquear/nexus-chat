@@ -1,8 +1,8 @@
-import React from 'react'
+import React, { useState } from 'react'
 import {
   Check, Calculator, Search, Code2, Clock, FileText,
   Wrench, Plus, Trash2, Paperclip, MessageSquarePlus,
-  Database, Server, RefreshCw,
+  Database, Server, RefreshCw, ChevronDown, ChevronRight, Image,
 } from 'lucide-react'
 
 const ICON_MAP = {
@@ -13,6 +13,30 @@ const ICON_MAP = {
   'file-text': FileText,
   database: Database,
   server: Server,
+  image: Image,
+}
+
+function CollapsibleSection({ label, count, defaultOpen = false, children }) {
+  const [open, setOpen] = useState(defaultOpen)
+  const Chevron = open ? ChevronDown : ChevronRight
+
+  return (
+    <div className="collapsible-section">
+      <button
+        className="collapsible-header"
+        onClick={() => setOpen(!open)}
+      >
+        <Chevron size={13} className="collapsible-chevron" />
+        <span className="sidebar-section-label" style={{ marginBottom: 0 }}>
+          {label}
+        </span>
+        {count > 0 && (
+          <span className="collapsible-count">{count}</span>
+        )}
+      </button>
+      {open && <div className="collapsible-body">{children}</div>}
+    </div>
+  )
 }
 
 export default function Sidebar({
@@ -53,6 +77,11 @@ export default function Sidebar({
     grouped[p].push(m)
   })
 
+  const builtinTools = tools.filter((t) => t.source !== 'mcp')
+  const activeBuiltinCount = builtinTools.filter((t) => selectedTools.includes(t.id)).length
+  const mcpToolCount = tools.filter((t) => t.source === 'mcp' && selectedTools.includes(t.id)).length
+  const activeFileCount = selectedFiles.length
+
   return (
     <>
       {isOpen && <div className="sidebar-overlay" onClick={onClose} />}
@@ -91,36 +120,32 @@ export default function Sidebar({
 
         <div className="sidebar-body">
           {/* Built-in Tools */}
-          <div className="sidebar-section">
-            <div className="sidebar-section-label">Tools</div>
-          </div>
-          {tools.filter((t) => t.source !== 'mcp').map((tool) => {
-            const active = selectedTools.includes(tool.id)
-            const Icon = ICON_MAP[tool.icon] || Wrench
-            return (
-              <div
-                key={tool.id}
-                className="toggle-item"
-                onClick={() => onToggleTool(tool.id)}
-              >
-                <div className={`toggle-check ${active ? 'active' : ''}`}>
-                  {active && <Check size={11} color="#fff" strokeWidth={3} />}
+          <CollapsibleSection label="Tools" count={activeBuiltinCount} defaultOpen>
+            {builtinTools.map((tool) => {
+              const active = selectedTools.includes(tool.id)
+              const Icon = ICON_MAP[tool.icon] || Wrench
+              return (
+                <div
+                  key={tool.id}
+                  className="toggle-item"
+                  onClick={() => onToggleTool(tool.id)}
+                >
+                  <div className={`toggle-check ${active ? 'active' : ''}`}>
+                    {active && <Check size={11} color="#fff" strokeWidth={3} />}
+                  </div>
+                  <Icon size={15} className="toggle-icon" />
+                  <div>
+                    <div className="toggle-label">{tool.name}</div>
+                    <div className="toggle-desc">{tool.description}</div>
+                  </div>
                 </div>
-                <Icon size={15} className="toggle-icon" />
-                <div>
-                  <div className="toggle-label">{tool.name}</div>
-                  <div className="toggle-desc">{tool.description}</div>
-                </div>
-              </div>
-            )
-          })}
+              )
+            })}
+          </CollapsibleSection>
 
           {/* MCP Servers */}
           {mcpServers && mcpServers.length > 0 && (
-            <>
-              <div className="sidebar-section" style={{ marginTop: 8 }}>
-                <div className="sidebar-section-label">MCP Servers</div>
-              </div>
+            <CollapsibleSection label="MCP Servers" count={mcpToolCount}>
               {mcpServers.map((srv) => {
                 const mcpTools = tools.filter(
                   (t) => t.source === 'mcp' && t.server === srv.id
@@ -187,69 +212,68 @@ export default function Sidebar({
                   </div>
                 )
               })}
-            </>
+            </CollapsibleSection>
           )}
 
           {/* Files */}
-          <div className="sidebar-section" style={{ marginTop: 8 }}>
-            <div className="sidebar-section-label">Files (RAG)</div>
-          </div>
-          {files.length === 0 && (
-            <div style={{ padding: '4px 16px', fontSize: 12.5, color: 'var(--text-tertiary)' }}>
-              No files uploaded yet
-            </div>
-          )}
-          {files.map((file) => {
-            const active = selectedFiles.includes(file.name)
-            return (
-              <div
-                key={file.name}
-                className="toggle-item"
-                onClick={() => onToggleFile(file.name)}
-              >
-                <div className={`toggle-check ${active ? 'active' : ''}`}>
-                  {active && <Check size={11} color="#fff" strokeWidth={3} />}
-                </div>
-                <FileText size={15} className="toggle-icon" />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="toggle-label" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {file.name}
-                  </div>
-                  <div className="toggle-desc">
-                    {(file.size / 1024).toFixed(1)} KB
-                  </div>
-                </div>
-                <button
-                  style={{
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    color: 'var(--text-tertiary)', padding: 2,
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onDeleteFile(file.name)
-                  }}
-                  title="Delete file"
-                >
-                  <Trash2 size={13} />
-                </button>
+          <CollapsibleSection label="Files (RAG)" count={activeFileCount}>
+            {files.length === 0 && (
+              <div style={{ padding: '4px 16px', fontSize: 12.5, color: 'var(--text-tertiary)' }}>
+                No files uploaded yet
               </div>
-            )
-          })}
+            )}
+            {files.map((file) => {
+              const active = selectedFiles.includes(file.name)
+              return (
+                <div
+                  key={file.name}
+                  className="toggle-item"
+                  onClick={() => onToggleFile(file.name)}
+                >
+                  <div className={`toggle-check ${active ? 'active' : ''}`}>
+                    {active && <Check size={11} color="#fff" strokeWidth={3} />}
+                  </div>
+                  <FileText size={15} className="toggle-icon" />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="toggle-label" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {file.name}
+                    </div>
+                    <div className="toggle-desc">
+                      {(file.size / 1024).toFixed(1)} KB
+                    </div>
+                  </div>
+                  <button
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: 'var(--text-tertiary)', padding: 2,
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onDeleteFile(file.name)
+                    }}
+                    title="Delete file"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              )
+            })}
 
-          <button
-            className="new-chat-btn"
-            style={{ margin: '8px 16px' }}
-            onClick={handleUploadClick}
-          >
-            <Paperclip size={14} />
-            Upload File
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            hidden
-            onChange={handleFileChange}
-          />
+            <button
+              className="new-chat-btn"
+              style={{ margin: '8px 16px' }}
+              onClick={handleUploadClick}
+            >
+              <Paperclip size={14} />
+              Upload File
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              hidden
+              onChange={handleFileChange}
+            />
+          </CollapsibleSection>
         </div>
       </aside>
     </>
