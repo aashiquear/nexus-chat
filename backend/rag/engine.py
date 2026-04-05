@@ -102,18 +102,31 @@ class RAGEngine:
             "file_id": file_id,
         }
 
-    async def query(self, query_text: str, top_k: int | None = None) -> list[dict]:
-        """Query the vector store and return relevant chunks."""
+    async def query(self, query_text: str, top_k: int | None = None, filenames: list[str] | None = None) -> list[dict]:
+        """Query the vector store and return relevant chunks.
+
+        Args:
+            query_text: The search query.
+            top_k: Max results to return.
+            filenames: If provided, restrict results to these source files.
+        """
         collection = self._get_collection()
         if collection is None:
             return []
 
         k = top_k or self.top_k
         try:
-            results = collection.query(
-                query_texts=[query_text],
-                n_results=k,
-            )
+            query_params = {
+                "query_texts": [query_text],
+                "n_results": k,
+            }
+            if filenames:
+                if len(filenames) == 1:
+                    query_params["where"] = {"source": filenames[0]}
+                else:
+                    query_params["where"] = {"source": {"$in": filenames}}
+
+            results = collection.query(**query_params)
 
             documents = results.get("documents", [[]])[0]
             metadatas = results.get("metadatas", [[]])[0]

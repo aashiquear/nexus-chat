@@ -131,7 +131,7 @@ class ChatOrchestrator:
         """Retrieve relevant context from RAG if enabled."""
         if not self._rag or not files:
             return ""
-        results = await self._rag.query(query)
+        results = await self._rag.query(query, filenames=files)
         if not results:
             return ""
         context_parts = []

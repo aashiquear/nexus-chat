@@ -18,7 +18,12 @@ class OllamaProvider(BaseLLMProvider):
 
     def __init__(self, config: dict):
         super().__init__(config)
-        self.base_url = config.get("base_url", "http://localhost:11434")
+        base = config.get("base_url", "http://localhost:11434").rstrip("/")
+        # Normalize: strip trailing /api so endpoint paths (/api/chat, /api/tags)
+        # work for both local (http://localhost:11434) and cloud (https://ollama.com/api)
+        if base.endswith("/api"):
+            base = base[:-4]
+        self.base_url = base
         api_key = config.get("api_key", "")
         # Build auth header for Ollama Cloud (Bearer token)
         self._headers = {}
