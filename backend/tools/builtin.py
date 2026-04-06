@@ -213,27 +213,36 @@ class WebSearchTool(BaseTool):
         query = kwargs.get("query", "")
         num = kwargs.get("num_results", 5)
 
-        # Use duckduckgo-search library for actual web search results
+        # Try duckduckgo-search library with retry on rate-limit
         try:
+            import time
             from duckduckgo_search import DDGS
-            with DDGS() as ddgs:
-                raw = list(ddgs.text(query, max_results=num))
-            if raw:
-                results = [
-                    {
-                        "title": r.get("title", ""),
-                        "text": r.get("body", ""),
-                        "url": r.get("href", ""),
-                    }
-                    for r in raw
-                ]
-                return json.dumps({"query": query, "results": results})
+            last_err = None
+            for attempt in range(3):
+                try:
+                    with DDGS() as ddgs:
+                        raw = list(ddgs.text(query, max_results=num))
+                    if raw:
+                        results = [
+                            {
+                                "title": r.get("title", ""),
+                                "text": r.get("body", ""),
+                                "url": r.get("href", ""),
+                            }
+                            for r in raw
+                        ]
+                        return json.dumps({"query": query, "results": results})
+                    break  # empty but no error — fall through to fallback
+                except Exception as e:
+                    last_err = e
+                    if "Ratelimit" in str(e) and attempt < 2:
+                        time.sleep(2 ** attempt)  # 1s, 2s backoff
+                        continue
+                    break  # non-ratelimit error — fall through
         except ImportError:
-            pass  # fall through to httpx fallback
-        except Exception as e:
-            return json.dumps({"error": str(e), "query": query})
+            pass  # library not installed — fall through
 
-        # Fallback: DuckDuckGo Instant Answer API (limited to factual lookups)
+        # Fallback: DuckDuckGo Instant Answer API
         try:
             import httpx
             async with httpx.AsyncClient(timeout=15) as client:
