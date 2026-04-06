@@ -213,6 +213,27 @@ class WebSearchTool(BaseTool):
         query = kwargs.get("query", "")
         num = kwargs.get("num_results", 5)
 
+        # Use duckduckgo-search library for actual web search results
+        try:
+            from duckduckgo_search import DDGS
+            with DDGS() as ddgs:
+                raw = list(ddgs.text(query, max_results=num))
+            if raw:
+                results = [
+                    {
+                        "title": r.get("title", ""),
+                        "text": r.get("body", ""),
+                        "url": r.get("href", ""),
+                    }
+                    for r in raw
+                ]
+                return json.dumps({"query": query, "results": results})
+        except ImportError:
+            pass  # fall through to httpx fallback
+        except Exception as e:
+            return json.dumps({"error": str(e), "query": query})
+
+        # Fallback: DuckDuckGo Instant Answer API (limited to factual lookups)
         try:
             import httpx
             async with httpx.AsyncClient(timeout=15) as client:
@@ -230,7 +251,7 @@ class WebSearchTool(BaseTool):
                         })
                 return json.dumps({
                     "query": query,
-                    "results": results or [{"text": data.get("Abstract", "No results found")}],
+                    "results": results or [{"text": data.get("Abstract") or "No results found"}],
                 })
         except Exception as e:
             return json.dumps({"error": str(e), "query": query})
