@@ -407,6 +407,8 @@ body {
   flex: 1;
   overflow-y: auto;
   padding: 24px 0;
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
 }
 
 .chat-container {
@@ -1050,12 +1052,6 @@ body {
   border-top: 1px solid var(--border-light);
   background: var(--bg-panel-hover);
   flex-shrink: 0;
-}
-
-/* ---- Improved Scrolling ---- */
-.chat-area {
-  scroll-behavior: smooth;
-  overscroll-behavior: contain;
 }
 
 /* ---- Responsive ---- */

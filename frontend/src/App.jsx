@@ -297,13 +297,13 @@ export default function App() {
             // Auto-open canvas panel for graph plots
             try {
               const parsed = JSON.parse(event.result)
-              if (parsed.plot_image) {
+              if (parsed && parsed.plot_image) {
                 setCanvasData({
                   image: parsed.plot_image,
                   title: parsed.title || 'Generated Plot',
                 })
               }
-            } catch {}
+            } catch (_e) { /* not JSON */ }
             break
 
           case 'done':

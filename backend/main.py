@@ -142,19 +142,6 @@ async def list_files():
     return {"files": files}
 
 
-@app.get("/api/files/plot/{filename}")
-async def serve_plot_file(filename: str):
-    """Serve a generated plot image from the data directory."""
-    data_dir = Path("./data")
-    filepath = data_dir / filename
-    if not filepath.exists():
-        # Also check uploads directory
-        filepath = upload_dir / filename
-    if not filepath.exists():
-        raise HTTPException(404, "Plot file not found")
-    return FileResponse(filepath, media_type="image/png")
-
-
 @app.delete("/api/files/{filename}")
 async def delete_file(filename: str):
     """Delete an uploaded file."""
@@ -169,6 +156,21 @@ async def delete_file(filename: str):
         await orchestrator.rag_engine.delete_file(filename)
 
     return {"deleted": filename}
+
+
+# ------ Plot Image Endpoint ------
+
+@app.get("/api/plots/{filename}")
+async def serve_plot_file(filename: str):
+    """Serve a generated plot image from the data directory."""
+    data_dir = Path("./data")
+    filepath = data_dir / filename
+    if not filepath.exists():
+        # Also check uploads directory
+        filepath = upload_dir / filename
+    if not filepath.exists():
+        raise HTTPException(404, "Plot file not found")
+    return FileResponse(filepath, media_type="image/png")
 
 
 # ------ MCP Server Endpoints ------

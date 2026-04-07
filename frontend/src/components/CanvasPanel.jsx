@@ -4,7 +4,7 @@ import { X, Download, BarChart3 } from 'lucide-react'
 export default function CanvasPanel({ image, title, onClose }) {
   if (!image) return null
 
-  const imageUrl = `/api/files/plot/${encodeURIComponent(image)}`
+  const imageUrl = `/api/plots/${encodeURIComponent(image)}`
 
   const handleDownload = () => {
     const a = document.createElement('a')

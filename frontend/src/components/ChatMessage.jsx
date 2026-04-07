@@ -51,12 +51,9 @@ function ToolCallDropdown({ toolCall, toolResult }) {
   // Parse result to check for special types
   let parsed = null
   if (toolResult) {
-    try { parsed = JSON.parse(toolResult.result) } catch {}
+    try { parsed = JSON.parse(toolResult.result) } catch (_e) { /* not JSON */ }
   }
 
-  const isSvg = parsed && parsed.svg && parsed.svg.includes('<svg')
-  const isPlot = parsed && parsed.plot_image
-  const isImageAnalysis = parsed && parsed.analysis && toolCall.name === 'image_analyzer'
   const hasError = parsed && parsed.error
 
   // Determine status icon and label
@@ -137,8 +134,8 @@ export default function ChatMessage({ message, onOpenCanvas }) {
   const specialResults = toolResults.filter((tr) => {
     try {
       const p = JSON.parse(tr.result)
-      return (p.svg && p.svg.includes('<svg')) || p.plot_image || (p.analysis && tr.name === 'image_analyzer')
-    } catch { return false }
+      return (p && p.svg && p.svg.includes('<svg')) || (p && p.plot_image) || (p && p.analysis && tr.name === 'image_analyzer')
+    } catch (_e) { return false }
   })
 
   return (
@@ -170,7 +167,7 @@ export default function ChatMessage({ message, onOpenCanvas }) {
         {/* Special inline results: SVG diagrams */}
         {specialResults.map((tr, i) => {
           let parsed
-          try { parsed = JSON.parse(tr.result) } catch { return null }
+          try { parsed = JSON.parse(tr.result) } catch (_e) { return null }
 
           // SVG diagram
           if (parsed.svg && parsed.svg.includes('<svg')) {
@@ -202,7 +199,7 @@ export default function ChatMessage({ message, onOpenCanvas }) {
                 </div>
                 <div className="plot-result-preview">
                   <img
-                    src={`/api/files/plot/${encodeURIComponent(parsed.plot_image)}`}
+                    src={`/api/plots/${encodeURIComponent(parsed.plot_image)}`}
                     alt={parsed.title || 'Plot'}
                     className="plot-result-img"
                   />
