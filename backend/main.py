@@ -32,6 +32,8 @@ import backend.providers.ollama_provider
 import backend.tools.builtin
 import backend.tools.example_tool
 import backend.tools.svg_diagram
+import backend.tools.graph_plotter
+import backend.tools.image_analyzer
 import backend.mcp  # noqa: F401 – MCP client module
 
 logging.basicConfig(level=logging.INFO)
@@ -138,6 +140,19 @@ async def list_files():
                 "extension": f.suffix,
             })
     return {"files": files}
+
+
+@app.get("/api/files/plot/{filename}")
+async def serve_plot_file(filename: str):
+    """Serve a generated plot image from the data directory."""
+    data_dir = Path("./data")
+    filepath = data_dir / filename
+    if not filepath.exists():
+        # Also check uploads directory
+        filepath = upload_dir / filename
+    if not filepath.exists():
+        raise HTTPException(404, "Plot file not found")
+    return FileResponse(filepath, media_type="image/png")
 
 
 @app.delete("/api/files/{filename}")

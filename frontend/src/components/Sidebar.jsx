@@ -3,7 +3,7 @@ import {
   Check, Calculator, Search, Code2, Clock, FileText,
   Wrench, Trash2, Paperclip, MessageSquarePlus,
   Database, Server, RefreshCw, ChevronDown, ChevronRight, Image,
-  MessageCircle,
+  MessageCircle, BarChart3, Eye,
 } from 'lucide-react'
 
 const ICON_MAP = {
@@ -15,6 +15,8 @@ const ICON_MAP = {
   database: Database,
   server: Server,
   image: Image,
+  'bar-chart': BarChart3,
+  eye: Eye,
 }
 
 function CollapsibleSection({ label, count, defaultOpen = false, children }) {

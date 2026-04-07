@@ -3,6 +3,7 @@ import { Menu, MessageCircle, Wifi, WifiOff } from 'lucide-react'
 import Sidebar from './components/Sidebar'
 import ChatMessage, { TypingIndicator } from './components/ChatMessage'
 import ChatInput from './components/ChatInput'
+import CanvasPanel from './components/CanvasPanel'
 import { useChat } from './hooks/useChat'
 import {
   fetchModels, fetchTools, fetchFiles, uploadFile, deleteFile,
@@ -28,8 +29,13 @@ export default function App() {
   const [conversations, setConversations] = useState([])
   const [activeConversationId, setActiveConversationId] = useState(null)
 
+  // Canvas panel state (right-side panel for graphs)
+  const [canvasData, setCanvasData] = useState(null)
+
   const chatEndRef = useRef(null)
+  const chatAreaRef = useRef(null)
   const streamBufferRef = useRef('')
+  const userScrolledRef = useRef(false)
   const { connect, sendMessage, isConnected, isStreaming } = useChat()
 
   // Initialize
@@ -58,9 +64,27 @@ export default function App() {
     }
   }
 
-  // Auto-scroll
+  // Smart auto-scroll: only auto-scroll if user is near the bottom
+  const handleScroll = useCallback(() => {
+    const el = chatAreaRef.current
+    if (!el) return
+    const threshold = 100
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold
+    userScrolledRef.current = !atBottom
+  }, [])
+
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const el = chatAreaRef.current
+    if (!el) return
+    el.addEventListener('scroll', handleScroll, { passive: true })
+    return () => el.removeEventListener('scroll', handleScroll)
+  }, [handleScroll])
+
+  // Auto-scroll when new content arrives (only if user hasn't scrolled up)
+  useEffect(() => {
+    if (!userScrolledRef.current) {
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
   }, [messages, isTyping])
 
   // Toggle helpers
@@ -162,6 +186,11 @@ export default function App() {
     }
   }
 
+  // Open canvas panel for a graph
+  const handleOpenCanvas = useCallback((data) => {
+    setCanvasData(data)
+  }, [])
+
   // Send message
   const handleSend = useCallback(() => {
     const text = inputValue.trim()
@@ -173,6 +202,7 @@ export default function App() {
     setInputValue('')
     setIsTyping(true)
     streamBufferRef.current = ''
+    userScrolledRef.current = false  // Reset scroll on new message
 
     // Build message history for the API
     const apiMessages = newMessages.map((m) => ({
@@ -263,6 +293,17 @@ export default function App() {
               return updated
             })
             streamBufferRef.current = ''
+
+            // Auto-open canvas panel for graph plots
+            try {
+              const parsed = JSON.parse(event.result)
+              if (parsed.plot_image) {
+                setCanvasData({
+                  image: parsed.plot_image,
+                  title: parsed.title || 'Generated Plot',
+                })
+              }
+            } catch {}
             break
 
           case 'done':
@@ -302,6 +343,7 @@ export default function App() {
     setActiveConversationId(null)
     setInputValue('')
     setSidebarOpen(false)
+    setCanvasData(null)
   }
 
   return (
@@ -351,7 +393,7 @@ export default function App() {
         </div>
 
         {/* Chat Area */}
-        <div className="chat-area">
+        <div className="chat-area" ref={chatAreaRef}>
           <div className="chat-container">
             {messages.length === 0 ? (
               <div className="empty-state">
@@ -367,7 +409,11 @@ export default function App() {
             ) : (
               <>
                 {messages.map((msg, i) => (
-                  <ChatMessage key={i} message={msg} />
+                  <ChatMessage
+                    key={i}
+                    message={msg}
+                    onOpenCanvas={handleOpenCanvas}
+                  />
                 ))}
                 {isTyping && <TypingIndicator />}
               </>
@@ -387,6 +433,15 @@ export default function App() {
           onRemoveFile={removeFile}
         />
       </div>
+
+      {/* Right-side Canvas Panel for graphs */}
+      {canvasData && (
+        <CanvasPanel
+          image={canvasData.image}
+          title={canvasData.title}
+          onClose={() => setCanvasData(null)}
+        />
+      )}
     </div>
   )
 }
