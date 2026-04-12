@@ -162,10 +162,13 @@ tools:
   image_synthesizer:
     enabled: true
     name: "Image Synthesizer"
-    description: "Convert images into textual/numerical representation for non-vision LLMs"
+    description: "Analyze images using local SmolVLM vision model and return textual descriptions"
     icon: "image"
     config:
       upload_dir: "./data/uploads"
+      # Optional: custom cache directory for the SmolVLM model weights.
+      # Defaults to HuggingFace's default cache (~/.cache/huggingface/).
+      # model_cache_dir: "./data/models"
 
 # ------------------------------------------------------------
 # MCP Servers (Model Context Protocol)

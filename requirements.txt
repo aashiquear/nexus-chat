@@ -25,6 +25,11 @@ python-docx==1.1.2
 matplotlib==3.9.2
 numpy==1.26.4
 
+# Vision (SmolVLM image synthesizer — lazy-loaded on first use)
+transformers>=4.45.0
+torch>=2.1.0
+Pillow>=10.0.0
+
 # Utilities
 jinja2==3.1.4
 duckduckgo-search==6.3.5
