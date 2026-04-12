@@ -56,6 +56,7 @@ export default function ChatInput({
   onRemoveFile,
   uploadProgress,
   conversationStats,
+  lastResponseStats,
 }) {
   const textareaRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -126,6 +127,7 @@ export default function ChatInput({
             {showStats && conversationStats && (
               <StatsPopup
                 stats={conversationStats}
+                lastResponse={lastResponseStats}
                 onClose={() => setShowStats(false)}
               />
             )}

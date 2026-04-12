@@ -39,6 +39,9 @@ export default function App() {
   const [tokenUsageHistory, setTokenUsageHistory] = useState([])
   const tokenUsageRef = useRef([])
 
+  // Live last-response stats — only populated during active conversation, not from saved data
+  const [lastResponseStats, setLastResponseStats] = useState(null)
+
   const chatEndRef = useRef(null)
   const chatAreaRef = useRef(null)
   const streamBufferRef = useRef('')
@@ -182,6 +185,7 @@ export default function App() {
         setSidebarOpen(false)
         setTokenUsageHistory(data.token_usage || [])
         tokenUsageRef.current = data.token_usage || []
+        setLastResponseStats(null)
       }
     } catch (err) {
       console.error('Failed to load conversation:', err)
@@ -232,10 +236,6 @@ export default function App() {
     const avgResponseTokens = tokenUsageHistory.length > 0
       ? Math.round(totalCompletionTokens / tokenUsageHistory.length) : 0
 
-    const lastUsage = tokenUsageHistory.length > 0 ? tokenUsageHistory[tokenUsageHistory.length - 1] : null
-    const lastResponseWords = assistantWordCounts.length > 0 ? assistantWordCounts[assistantWordCounts.length - 1] : 0
-    const lastResponseTokens = lastUsage ? (lastUsage.completion_tokens || 0) : 0
-
     return {
       userMessages,
       assistantMessages,
@@ -246,8 +246,6 @@ export default function App() {
       totalTokens,
       maxResponseWords,
       maxResponseTokens,
-      lastResponseWords,
-      lastResponseTokens,
       avgResponseWords,
       avgResponseTokens,
     }
@@ -378,6 +376,19 @@ export default function App() {
                 return updated
               })
             }
+            // Compute last response stats from the streamed content
+            {
+              const lastWords = streamBufferRef.current
+                ? streamBufferRef.current.trim().split(/\s+/).filter(Boolean).length
+                : 0
+              const lastTokens = event.usage ? (event.usage.completion_tokens || 0) : 0
+              const lastPromptTokens = event.usage ? (event.usage.prompt_tokens || 0) : 0
+              setLastResponseStats({
+                words: lastWords,
+                tokens: lastTokens,
+                promptTokens: lastPromptTokens,
+              })
+            }
             // Auto-save conversation when response is complete
             setMessages((prev) => {
               // Use a timeout to ensure state is settled
@@ -416,6 +427,7 @@ export default function App() {
     setCanvasData(null)
     setTokenUsageHistory([])
     tokenUsageRef.current = []
+    setLastResponseStats(null)
   }
 
   return (
@@ -506,6 +518,7 @@ export default function App() {
           onRemoveFile={removeFile}
           uploadProgress={uploadProgress}
           conversationStats={conversationStats}
+          lastResponseStats={lastResponseStats}
         />
       </div>
 

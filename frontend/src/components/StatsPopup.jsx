@@ -21,7 +21,7 @@ function formatNum(n) {
   return n.toString()
 }
 
-export default function StatsPopup({ stats, onClose }) {
+export default function StatsPopup({ stats, lastResponse, onClose }) {
   const {
     userMessages = 0,
     assistantMessages = 0,
@@ -32,8 +32,6 @@ export default function StatsPopup({ stats, onClose }) {
     totalTokens = 0,
     maxResponseWords = 0,
     maxResponseTokens = 0,
-    lastResponseWords = 0,
-    lastResponseTokens = 0,
     avgResponseWords = 0,
     avgResponseTokens = 0,
   } = stats
@@ -71,11 +69,12 @@ export default function StatsPopup({ stats, onClose }) {
           <StatRow icon={Zap} label="Max response" value={maxResponseTokens} sub="tokens" />
         </div>
 
-        {lastResponseWords > 0 && (
+        {lastResponse && (
           <div className="stats-section">
             <div className="stats-section-label">Last Response</div>
-            <StatRow icon={Clock} label="Words" value={lastResponseWords} />
-            <StatRow icon={Clock} label="Tokens" value={lastResponseTokens} />
+            <StatRow icon={Clock} label="Words" value={lastResponse.words} />
+            <StatRow icon={Clock} label="Completion tokens" value={lastResponse.tokens} />
+            <StatRow icon={Clock} label="Prompt tokens" value={lastResponse.promptTokens} />
           </div>
         )}
       </div>
