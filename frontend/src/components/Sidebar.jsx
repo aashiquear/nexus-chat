@@ -19,6 +19,32 @@ const ICON_MAP = {
   eye: Eye,
 }
 
+function AccordionSection({ label, count, isOpen, onToggle, children }) {
+  const Chevron = isOpen ? ChevronDown : ChevronRight
+
+  return (
+    <div className={`accordion-section ${isOpen ? 'accordion-section-open' : ''}`}>
+      <button
+        className="collapsible-header"
+        onClick={onToggle}
+      >
+        <Chevron size={13} className="collapsible-chevron" />
+        <span className="sidebar-section-label" style={{ marginBottom: 0 }}>
+          {label}
+        </span>
+        {count > 0 && (
+          <span className="collapsible-count">{count}</span>
+        )}
+      </button>
+      {isOpen && (
+        <div className="accordion-body">
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function CollapsibleSection({ label, count, defaultOpen = false, children }) {
   const [open, setOpen] = useState(defaultOpen)
   const Chevron = open ? ChevronDown : ChevronRight
@@ -56,6 +82,7 @@ export default function Sidebar({
   onToggleFile,
   onUpload,
   onDeleteFile,
+  uploadProgress,
   conversations,
   activeConversationId,
   onSelectConversation,
@@ -65,6 +92,10 @@ export default function Sidebar({
   onClose,
 }) {
   const fileInputRef = React.useRef(null)
+
+  // Accordion state: only one of 'tools', 'mcp', 'rag' open at a time
+  const [openSection, setOpenSection] = useState('tools')
+  const toggleSection = (key) => setOpenSection((prev) => prev === key ? null : key)
 
   const handleUploadClick = () => fileInputRef.current?.click()
 
@@ -167,7 +198,12 @@ export default function Sidebar({
 
         <div className="sidebar-body">
           {/* Built-in Tools */}
-          <CollapsibleSection label="Tools" count={activeBuiltinCount} defaultOpen>
+          <AccordionSection
+            label="Tools"
+            count={activeBuiltinCount}
+            isOpen={openSection === 'tools'}
+            onToggle={() => toggleSection('tools')}
+          >
             {builtinTools.map((tool) => {
               const active = selectedTools.includes(tool.id)
               const Icon = ICON_MAP[tool.icon] || Wrench
@@ -188,15 +224,22 @@ export default function Sidebar({
                 </div>
               )
             })}
-          </CollapsibleSection>
+          </AccordionSection>
 
           {/* MCP Servers */}
           {mcpServers && mcpServers.length > 0 && (
-            <CollapsibleSection label="MCP Servers" count={mcpToolCount} defaultOpen>
+            <AccordionSection
+              label="MCP Servers"
+              count={mcpToolCount}
+              isOpen={openSection === 'mcp'}
+              onToggle={() => toggleSection('mcp')}
+            >
               {mcpServers.map((srv) => {
                 const mcpTools = tools.filter(
                   (t) => t.source === 'mcp' && t.server === srv.id
                 )
+                const allSelected = mcpTools.length > 0 && mcpTools.every((t) => selectedTools.includes(t.id))
+                const someSelected = mcpTools.some((t) => selectedTools.includes(t.id))
                 return (
                   <div key={srv.id} style={{ marginBottom: 4 }}>
                     <div
@@ -208,6 +251,26 @@ export default function Sidebar({
                         fontSize: 12,
                       }}
                     >
+                      <div
+                        className={`toggle-check ${allSelected ? 'active' : ''} ${someSelected && !allSelected ? 'partial' : ''}`}
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => {
+                          const toolIds = mcpTools.map((t) => t.id)
+                          if (allSelected) {
+                            // Deselect all tools from this server
+                            toolIds.forEach((id) => onToggleTool(id))
+                          } else {
+                            // Select all tools from this server
+                            toolIds.forEach((id) => {
+                              if (!selectedTools.includes(id)) onToggleTool(id)
+                            })
+                          }
+                        }}
+                        title={allSelected ? 'Deselect all' : 'Select all'}
+                      >
+                        {allSelected && <Check size={11} color="#fff" strokeWidth={3} />}
+                        {someSelected && !allSelected && <span style={{ color: '#fff', fontSize: 10, fontWeight: 700 }}>–</span>}
+                      </div>
                       <Server size={13} style={{ opacity: 0.6 }} />
                       <span style={{ fontWeight: 500, flex: 1 }}>{srv.name}</span>
                       <span
@@ -259,11 +322,16 @@ export default function Sidebar({
                   </div>
                 )
               })}
-            </CollapsibleSection>
+            </AccordionSection>
           )}
 
           {/* Files */}
-          <CollapsibleSection label="Files (RAG)" count={activeFileCount}>
+          <AccordionSection
+            label="Files (RAG)"
+            count={activeFileCount}
+            isOpen={openSection === 'rag'}
+            onToggle={() => toggleSection('rag')}
+          >
             {files.length === 0 && (
               <div style={{ padding: '4px 16px', fontSize: 12.5, color: 'var(--text-tertiary)' }}>
                 No files uploaded yet
@@ -306,6 +374,27 @@ export default function Sidebar({
               )
             })}
 
+            {/* Upload progress indicator */}
+            {uploadProgress && (
+              <div className="upload-progress-item">
+                <FileText size={15} className="toggle-icon" />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="toggle-label" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {uploadProgress.filename}
+                  </div>
+                  <div className="upload-progress-bar-track">
+                    <div
+                      className="upload-progress-bar-fill"
+                      style={{ width: `${uploadProgress.progress}%` }}
+                    />
+                  </div>
+                  <div className="toggle-desc" style={{ marginTop: 2 }}>
+                    {uploadProgress.progress}% uploading...
+                  </div>
+                </div>
+              </div>
+            )}
+
             <button
               className="new-chat-btn"
               style={{ margin: '8px 16px' }}
@@ -320,7 +409,7 @@ export default function Sidebar({
               hidden
               onChange={handleFileChange}
             />
-          </CollapsibleSection>
+          </AccordionSection>
         </div>
       </aside>
     </>

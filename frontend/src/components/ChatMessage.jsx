@@ -1,10 +1,155 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import {
   User, Bot, Wrench, CheckCircle2, ChevronDown, ChevronRight,
-  BarChart3, Image as ImageIcon, Eye,
+  BarChart3, Image as ImageIcon, Eye, Copy, Check as CheckIcon,
 } from 'lucide-react'
 
-// Simple markdown-like renderer (no dependency needed for basics)
+// Copy-to-clipboard code block wrapper
+function CodeBlock({ code, lang }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }, [code])
+
+  return (
+    <div className="code-block-wrapper">
+      <div className="code-block-header">
+        {lang && <span className="code-block-lang">{lang}</span>}
+        <button
+          className={`code-block-copy ${copied ? 'copied' : ''}`}
+          onClick={handleCopy}
+          title="Copy code"
+        >
+          {copied ? <CheckIcon size={12} /> : <Copy size={12} />}
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+      <pre className="code-block-pre">
+        <code>{code}</code>
+      </pre>
+    </div>
+  )
+}
+
+// Parse markdown table lines into a structured table
+function parseMarkdownTable(lines) {
+  if (lines.length < 2) return null
+
+  const parseRow = (line) =>
+    line.split('|').map((c) => c.trim()).filter((c, i, arr) =>
+      // filter out leading/trailing empty cells from || borders
+      !(c === '' && (i === 0 || i === arr.length - 1))
+    )
+
+  const headers = parseRow(lines[0])
+  // Check separator row (e.g. |---|---|)
+  const sep = lines[1]
+  if (!/^[\s|:-]+$/.test(sep)) return null
+
+  const rows = lines.slice(2).map(parseRow)
+
+  return { headers, rows }
+}
+
+// Apply inline markdown formatting: bold, italic, inline code, links, strikethrough, images
+function formatInline(text) {
+  return text
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="md-inline-img" />')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    .replace(/~~([^~]+)~~/g, '<del>$1</del>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+}
+
+// Render rich cell content: inline formatting + list support
+function renderCellContent(cellText) {
+  if (!cellText) return null
+
+  // Handle HTML lists: <ul><li>...</li></ul> or <ol><li>...</li></ol>
+  if (/<[uo]l>/i.test(cellText)) {
+    const html = formatInline(cellText)
+    return <span dangerouslySetInnerHTML={{ __html: html }} />
+  }
+
+  // Split on <br>, \n, or before • bullets glued together
+  // Also split glued numbered lists: "1. text2. text" → separate lines
+  const lines = cellText
+    .replace(/([^•\n])•/g, '$1\n•')
+    .replace(/(\S)(\d+\.\s)/g, '$1\n$2')
+    .split(/<br\s*\/?>|\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+
+  return renderLinesList(lines)
+}
+
+// Match unordered list markers: - or • followed by space, but NOT * (conflicts with bold **)
+const BULLET_RE = /^[-•]\s+(.+)$/
+// Match ordered list: "1. text", "2. text"
+const ORDERED_RE = /^\d+\.\s+(.+)$/
+
+// Shared helper: convert an array of text lines into React elements,
+// recognizing list markers and applying inline formatting.
+function renderLinesList(lines, keyPrefix = '') {
+  const parts = []
+  let bulletItems = []
+  let orderedItems = []
+
+  const flushBullets = () => {
+    if (bulletItems.length === 0) return
+    parts.push(
+      <ul key={`${keyPrefix}ul-${parts.length}`} className="cell-list">
+        {bulletItems.splice(0).map((item, j) => (
+          <li key={j} dangerouslySetInnerHTML={{ __html: formatInline(item) }} />
+        ))}
+      </ul>
+    )
+  }
+
+  const flushOrdered = () => {
+    if (orderedItems.length === 0) return
+    parts.push(
+      <ol key={`${keyPrefix}ol-${parts.length}`} className="cell-list">
+        {orderedItems.splice(0).map((item, j) => (
+          <li key={j} dangerouslySetInnerHTML={{ __html: formatInline(item) }} />
+        ))}
+      </ol>
+    )
+  }
+
+  for (const line of lines) {
+    const bulletMatch = line.match(BULLET_RE)
+    const orderedMatch = line.match(ORDERED_RE)
+    if (bulletMatch) {
+      flushOrdered()
+      bulletItems.push(bulletMatch[1])
+    } else if (orderedMatch) {
+      flushBullets()
+      orderedItems.push(orderedMatch[1])
+    } else {
+      flushBullets()
+      flushOrdered()
+      parts.push(
+        <span key={`${keyPrefix}t-${parts.length}`} dangerouslySetInnerHTML={{ __html: formatInline(line) }} />
+      )
+    }
+  }
+  flushBullets()
+  flushOrdered()
+
+  if (parts.length === 0) {
+    return <span dangerouslySetInnerHTML={{ __html: formatInline(lines.join(' ')) }} />
+  }
+  if (parts.length === 1) return parts[0]
+  return <>{parts}</>
+}
+
+// Markdown-like renderer with tables & rich code blocks
 function renderContent(text) {
   if (!text) return null
 
@@ -18,30 +163,180 @@ function renderContent(text) {
       const firstNewline = lines.indexOf('\n')
       const lang = firstNewline > 0 ? lines.slice(0, firstNewline).trim() : ''
       const code = firstNewline > 0 ? lines.slice(firstNewline + 1) : lines
-      return (
-        <pre key={i}>
-          <code>{code}</code>
-        </pre>
+      return <CodeBlock key={i} code={code} lang={lang} />
+    }
+
+    // Regular text: handle tables, inline code, bold, links
+    const textLines = part.split('\n')
+    const elements = []
+    let idx = 0
+
+    while (idx < textLines.length) {
+      // Detect markdown table: line starts with | and next line is separator
+      if (
+        textLines[idx].trim().startsWith('|') &&
+        idx + 1 < textLines.length &&
+        /^[\s|:-]+$/.test(textLines[idx + 1])
+      ) {
+        // Collect all contiguous table lines
+        const tableLines = []
+        while (idx < textLines.length && textLines[idx].trim().startsWith('|')) {
+          tableLines.push(textLines[idx])
+          idx++
+        }
+        const table = parseMarkdownTable(tableLines)
+        if (table) {
+          elements.push(
+            <div key={`${i}-table-${idx}`} className="md-table-wrapper">
+              <table className="md-table">
+                <thead>
+                  <tr>
+                    {table.headers.map((h, hi) => (
+                      <th key={hi}>{renderCellContent(h)}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {table.rows.map((row, ri) => (
+                    <tr key={ri}>
+                      {row.map((cell, ci) => (
+                        <td key={ci}>{renderCellContent(cell)}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+          continue
+        }
+      }
+
+      const line = textLines[idx]
+      idx++
+
+      if (!line.trim()) {
+        elements.push(<br key={`${i}-${idx}`} />)
+        continue
+      }
+
+      // Headings: # to ######
+      const headingMatch = line.match(/^(#{1,6})\s+(.+)$/)
+      if (headingMatch) {
+        const level = headingMatch[1].length
+        const Tag = `h${level}`
+        elements.push(
+          <Tag
+            key={`${i}-${idx}`}
+            className={`md-heading md-h${level}`}
+            dangerouslySetInnerHTML={{ __html: formatInline(headingMatch[2]) }}
+          />
+        )
+        continue
+      }
+
+      // Horizontal rule: ---, ***, ___
+      if (/^[-*_]{3,}\s*$/.test(line.trim())) {
+        elements.push(<hr key={`${i}-${idx}`} className="md-hr" />)
+        continue
+      }
+
+      // Blockquote: > text (collect consecutive > lines)
+      if (/^>\s?/.test(line.trim())) {
+        const quoteLines = [line.replace(/^>\s?/, '')]
+        while (idx < textLines.length && /^>\s?/.test(textLines[idx].trim())) {
+          quoteLines.push(textLines[idx].replace(/^>\s?/, ''))
+          idx++
+        }
+        elements.push(
+          <blockquote
+            key={`${i}-${idx}-bq`}
+            className="md-blockquote"
+            dangerouslySetInnerHTML={{ __html: quoteLines.map(formatInline).join('<br/>') }}
+          />
+        )
+        continue
+      }
+
+      // Detect bullet lines: • or - at start (not * which conflicts with bold)
+      // Also detect • glued mid-line, or numbered lists glued together
+      if (/•/.test(line) || /^[-•]\s+/.test(line.trim()) || /^\d+\.\s+/.test(line.trim())) {
+        // Split glued • bullets and glued numbered items into separate lines
+        const splitLines = line
+          .replace(/([^•\n])•/g, '$1\n•')
+          .replace(/(\S)(\d+\.\s)/g, '$1\n$2')
+          .split('\n')
+          .map((l) => l.trim())
+          .filter(Boolean)
+
+        // For single-line items (not glued), also collect consecutive list lines
+        if (splitLines.length === 1) {
+          const isBullet = BULLET_RE.test(splitLines[0])
+          const isOrdered = ORDERED_RE.test(splitLines[0])
+          if (isBullet || isOrdered) {
+            const re = isBullet ? BULLET_RE : ORDERED_RE
+            const collected = [splitLines[0]]
+            while (idx < textLines.length && re.test(textLines[idx].trim())) {
+              collected.push(textLines[idx].trim())
+              idx++
+            }
+            const Tag = isBullet ? 'ul' : 'ol'
+            elements.push(
+              <Tag key={`${i}-${idx}-clist`} className="md-list">
+                {collected.map((item, j) => {
+                  const content = item.replace(isBullet ? /^[-•]\s+/ : /^\d+\.\s+/, '')
+                  return (
+                    <li key={j} dangerouslySetInnerHTML={{ __html: formatInline(content) }} />
+                  )
+                })}
+              </Tag>
+            )
+            continue
+          }
+        }
+
+        // Check if they're bullet items (- or •, NOT *)
+        const allBullets = splitLines.length > 1 && splitLines.every((l) => BULLET_RE.test(l))
+        if (allBullets) {
+          elements.push(
+            <ul key={`${i}-${idx}-list`} className="md-list">
+              {splitLines.map((item, j) => {
+                const content = item.replace(/^[-•]\s+/, '')
+                return (
+                  <li key={j} dangerouslySetInnerHTML={{ __html: formatInline(content) }} />
+                )
+              })}
+            </ul>
+          )
+          continue
+        }
+
+        // Check if they're numbered list items
+        const allOrdered = splitLines.length > 1 && splitLines.every((l) => ORDERED_RE.test(l))
+        if (allOrdered) {
+          elements.push(
+            <ol key={`${i}-${idx}-olist`} className="md-list">
+              {splitLines.map((item, j) => {
+                const content = item.replace(/^\d+\.\s+/, '')
+                return (
+                  <li key={j} dangerouslySetInnerHTML={{ __html: formatInline(content) }} />
+                )
+              })}
+            </ol>
+          )
+          continue
+        }
+      }
+
+      elements.push(
+        <p
+          key={`${i}-${idx}`}
+          dangerouslySetInnerHTML={{ __html: formatInline(line) }}
+        />
       )
     }
 
-    // Regular text: handle inline code, bold, links
-    return part.split('\n').map((line, j) => {
-      if (!line.trim()) return <br key={`${i}-${j}`} />
-
-      // Process inline formatting
-      let processed = line
-        .replace(/`([^`]+)`/g, '<code>$1</code>')
-        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-
-      return (
-        <p
-          key={`${i}-${j}`}
-          dangerouslySetInnerHTML={{ __html: processed }}
-        />
-      )
-    })
+    return elements
   })
 }
 
@@ -139,7 +434,7 @@ export default function ChatMessage({ message, onOpenCanvas }) {
   })
 
   return (
-    <div className="message">
+    <div className={`message ${isUser ? 'message-user' : ''}`}>
       <div className="message-header">
         <div className={`message-avatar ${message.role}`}>
           {isUser ? <User size={14} /> : <Bot size={14} />}
@@ -149,7 +444,7 @@ export default function ChatMessage({ message, onOpenCanvas }) {
         </span>
       </div>
       <div className="message-body">
-        {renderContent(message.content)}
+        {isUser ? <p>{message.content}</p> : renderContent(message.content)}
 
         {/* Collapsible tool reasoning */}
         {toolPairs.length > 0 && (

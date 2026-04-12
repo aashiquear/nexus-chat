@@ -1,5 +1,50 @@
-import React, { useRef, useEffect } from 'react'
-import { Send, Paperclip, X } from 'lucide-react'
+import React, { useRef, useEffect, useState } from 'react'
+import { Send, Paperclip, X, BarChart2 } from 'lucide-react'
+import StatsPopup from './StatsPopup'
+
+function CircularProgress({ progress, size = 32, strokeWidth = 3 }) {
+  const radius = (size - strokeWidth) / 2
+  const circumference = 2 * Math.PI * radius
+  const offset = circumference - (progress / 100) * circumference
+
+  return (
+    <svg width={size} height={size} className="circular-progress">
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke="var(--border)"
+        strokeWidth={strokeWidth}
+      />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke="var(--accent)"
+        strokeWidth={strokeWidth}
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+        strokeLinecap="round"
+        transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        style={{ transition: 'stroke-dashoffset 0.2s ease' }}
+      />
+      <text
+        x={size / 2}
+        y={size / 2}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill="var(--text-secondary)"
+        fontSize="9"
+        fontWeight="600"
+        fontFamily="var(--font-body)"
+      >
+        {progress}%
+      </text>
+    </svg>
+  )
+}
 
 export default function ChatInput({
   value,
@@ -9,9 +54,13 @@ export default function ChatInput({
   disabled,
   selectedFiles,
   onRemoveFile,
+  uploadProgress,
+  conversationStats,
+  lastResponseStats,
 }) {
   const textareaRef = useRef(null)
   const fileInputRef = useRef(null)
+  const [showStats, setShowStats] = useState(false)
 
   // Auto-resize textarea
   useEffect(() => {
@@ -40,6 +89,13 @@ export default function ChatInput({
   return (
     <div className="input-area">
       <div className="input-container">
+        {/* Upload progress chip */}
+        {uploadProgress && (
+          <div className="upload-progress-chip">
+            <CircularProgress progress={uploadProgress.progress} />
+            <span className="upload-progress-chip-name">{uploadProgress.filename}</span>
+          </div>
+        )}
         {selectedFiles.length > 0 && (
           <div className="file-chips">
             {selectedFiles.map((name) => (
@@ -60,6 +116,22 @@ export default function ChatInput({
           >
             <Paperclip size={17} />
           </button>
+          <div className="stats-btn-wrapper">
+            <button
+              className={`stats-btn ${showStats ? 'active' : ''}`}
+              onClick={() => setShowStats(!showStats)}
+              title="Conversation statistics"
+            >
+              <BarChart2 size={17} />
+            </button>
+            {showStats && conversationStats && (
+              <StatsPopup
+                stats={conversationStats}
+                lastResponse={lastResponseStats}
+                onClose={() => setShowStats(false)}
+              />
+            )}
+          </div>
           <input
             ref={fileInputRef}
             type="file"

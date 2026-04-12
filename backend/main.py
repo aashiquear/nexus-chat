@@ -34,6 +34,7 @@ import backend.tools.example_tool
 import backend.tools.svg_diagram
 import backend.tools.graph_plotter
 import backend.tools.image_analyzer
+import backend.tools.image_synthesizer
 import backend.mcp  # noqa: F401 – MCP client module
 
 logging.basicConfig(level=logging.INFO)
@@ -130,7 +131,11 @@ async def upload_file(file: UploadFile = File(...)):
 
 @app.get("/api/files")
 async def list_files():
-    """List uploaded files."""
+    """List uploaded files and resync any new files into the RAG vector store."""
+    # Re-ingest any files placed directly in the uploads directory (not via upload API)
+    if orchestrator.rag_engine:
+        await orchestrator.rag_engine.sync_uploads(upload_dir)
+
     files = []
     for f in upload_dir.iterdir():
         if f.is_file():
@@ -218,6 +223,7 @@ async def save_conversation_post(request: StarletteRequest):
         conversation_id=body.get("id"),
         messages=body.get("messages", []),
         model=body.get("model", ""),
+        token_usage=body.get("token_usage"),
     )
     return result
 

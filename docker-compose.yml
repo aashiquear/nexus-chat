@@ -1,5 +1,3 @@
-version: "3.9"
-
 # Shared network so standalone MCP servers can also connect.
 # Create it once with:  docker network create nexus-net
 # Standalone containers join with:  docker run --network nexus-net ...

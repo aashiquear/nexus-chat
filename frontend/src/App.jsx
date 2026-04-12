@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Menu, MessageCircle, Wifi, WifiOff } from 'lucide-react'
 import Sidebar from './components/Sidebar'
 import ChatMessage, { TypingIndicator } from './components/ChatMessage'
@@ -31,6 +31,16 @@ export default function App() {
 
   // Canvas panel state (right-side panel for graphs)
   const [canvasData, setCanvasData] = useState(null)
+
+  // Upload progress state: { filename, progress (0-100) } or null
+  const [uploadProgress, setUploadProgress] = useState(null)
+
+  // Token usage tracking: array of { prompt_tokens, completion_tokens, total_tokens } per response
+  const [tokenUsageHistory, setTokenUsageHistory] = useState([])
+  const tokenUsageRef = useRef([])
+
+  // Live last-response stats — only populated during active conversation, not from saved data
+  const [lastResponseStats, setLastResponseStats] = useState(null)
 
   const chatEndRef = useRef(null)
   const chatAreaRef = useRef(null)
@@ -107,13 +117,18 @@ export default function App() {
   // Upload
   const handleUpload = async (file) => {
     try {
-      await uploadFile(file)
+      setUploadProgress({ filename: file.name, progress: 0 })
+      await uploadFile(file, (progress) => {
+        setUploadProgress({ filename: file.name, progress })
+      })
+      setUploadProgress(null)
       const updatedFiles = await fetchFiles()
       setFiles(updatedFiles)
       if (!selectedFiles.includes(file.name)) {
         setSelectedFiles((prev) => [...prev, file.name])
       }
     } catch (err) {
+      setUploadProgress(null)
       alert(`Upload failed: ${err.message}`)
     }
   }
@@ -141,13 +156,14 @@ export default function App() {
 
   // ---- Conversation persistence ----
 
-  const persistConversation = useCallback(async (msgs, convId) => {
+  const persistConversation = useCallback(async (msgs, convId, tokenUsage) => {
     if (!msgs || msgs.length === 0) return null
     try {
       const result = await saveConversation({
         id: convId || undefined,
         messages: msgs,
         model: selectedModel,
+        token_usage: tokenUsage || undefined,
       })
       // Refresh the sidebar list
       const convos = await fetchConversations()
@@ -167,6 +183,9 @@ export default function App() {
         setActiveConversationId(data.id)
         if (data.model) setSelectedModel(data.model)
         setSidebarOpen(false)
+        setTokenUsageHistory(data.token_usage || [])
+        tokenUsageRef.current = data.token_usage || []
+        setLastResponseStats(null)
       }
     } catch (err) {
       console.error('Failed to load conversation:', err)
@@ -190,6 +209,47 @@ export default function App() {
   const handleOpenCanvas = useCallback((data) => {
     setCanvasData(data)
   }, [])
+
+  // Compute conversation statistics from messages and token history
+  const conversationStats = useMemo(() => {
+    const countWords = (text) => text ? text.trim().split(/\s+/).filter(Boolean).length : 0
+
+    const userMsgs = messages.filter((m) => m.role === 'user')
+    const assistantMsgs = messages.filter((m) => m.role === 'assistant')
+
+    const userMessages = userMsgs.length
+    const assistantMessages = assistantMsgs.length
+
+    const totalUserWords = userMsgs.reduce((sum, m) => sum + countWords(m.content), 0)
+    const assistantWordCounts = assistantMsgs.map((m) => countWords(m.content))
+    const totalAssistantWords = assistantWordCounts.reduce((a, b) => a + b, 0)
+
+    const maxResponseWords = assistantWordCounts.length > 0 ? Math.max(...assistantWordCounts) : 0
+    const avgResponseWords = assistantMessages > 0 ? Math.round(totalAssistantWords / assistantMessages) : 0
+
+    const totalPromptTokens = tokenUsageHistory.reduce((sum, u) => sum + (u.prompt_tokens || 0), 0)
+    const totalCompletionTokens = tokenUsageHistory.reduce((sum, u) => sum + (u.completion_tokens || 0), 0)
+    const totalTokens = tokenUsageHistory.reduce((sum, u) => sum + (u.total_tokens || 0), 0)
+
+    const completionTokenCounts = tokenUsageHistory.map((u) => u.completion_tokens || 0)
+    const maxResponseTokens = completionTokenCounts.length > 0 ? Math.max(...completionTokenCounts) : 0
+    const avgResponseTokens = tokenUsageHistory.length > 0
+      ? Math.round(totalCompletionTokens / tokenUsageHistory.length) : 0
+
+    return {
+      userMessages,
+      assistantMessages,
+      totalUserWords,
+      totalAssistantWords,
+      totalPromptTokens,
+      totalCompletionTokens,
+      totalTokens,
+      maxResponseWords,
+      maxResponseTokens,
+      avgResponseWords,
+      avgResponseTokens,
+    }
+  }, [messages, tokenUsageHistory])
 
   // Send message
   const handleSend = useCallback(() => {
@@ -308,11 +368,32 @@ export default function App() {
 
           case 'done':
             setIsTyping(false)
+            // Track token usage if provided
+            if (event.usage) {
+              setTokenUsageHistory((prev) => {
+                const updated = [...prev, event.usage]
+                tokenUsageRef.current = updated
+                return updated
+              })
+            }
+            // Compute last response stats from the streamed content
+            {
+              const lastWords = streamBufferRef.current
+                ? streamBufferRef.current.trim().split(/\s+/).filter(Boolean).length
+                : 0
+              const lastTokens = event.usage ? (event.usage.completion_tokens || 0) : 0
+              const lastPromptTokens = event.usage ? (event.usage.prompt_tokens || 0) : 0
+              setLastResponseStats({
+                words: lastWords,
+                tokens: lastTokens,
+                promptTokens: lastPromptTokens,
+              })
+            }
             // Auto-save conversation when response is complete
             setMessages((prev) => {
               // Use a timeout to ensure state is settled
               setTimeout(async () => {
-                const savedId = await persistConversation(prev, currentConvId)
+                const savedId = await persistConversation(prev, currentConvId, tokenUsageRef.current)
                 if (savedId && !currentConvId) {
                   setActiveConversationId(savedId)
                   currentConvId = savedId
@@ -344,6 +425,9 @@ export default function App() {
     setInputValue('')
     setSidebarOpen(false)
     setCanvasData(null)
+    setTokenUsageHistory([])
+    tokenUsageRef.current = []
+    setLastResponseStats(null)
   }
 
   return (
@@ -362,6 +446,7 @@ export default function App() {
         onToggleFile={toggleFile}
         onUpload={handleUpload}
         onDeleteFile={handleDeleteFile}
+        uploadProgress={uploadProgress}
         conversations={conversations}
         activeConversationId={activeConversationId}
         onSelectConversation={handleSelectConversation}
@@ -431,6 +516,9 @@ export default function App() {
           disabled={isStreaming || !isConnected}
           selectedFiles={selectedFiles}
           onRemoveFile={removeFile}
+          uploadProgress={uploadProgress}
+          conversationStats={conversationStats}
+          lastResponseStats={lastResponseStats}
         />
       </div>
 

@@ -223,6 +223,8 @@ class ChatOrchestrator:
         )
 
         # Agentic loop (max 5 tool rounds)
+        total_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+
         for _round in range(5):
             collected_text = ""
             collected_tool_call = None
@@ -243,11 +245,18 @@ class ChatOrchestrator:
                         tool_call_buffer += tc["partial"]
 
                 if chunk.done:
+                    if chunk.usage:
+                        total_usage["prompt_tokens"] += chunk.usage.get("prompt_tokens", 0)
+                        total_usage["completion_tokens"] += chunk.usage.get("completion_tokens", 0)
+                        total_usage["total_tokens"] += chunk.usage.get("total_tokens", 0)
                     break
 
             # If no tool call, we're done
             if not collected_tool_call:
-                yield {"type": "done"}
+                done_event = {"type": "done"}
+                if total_usage["total_tokens"] > 0:
+                    done_event["usage"] = total_usage
+                yield done_event
                 return
 
             # Execute tool
@@ -276,7 +285,10 @@ class ChatOrchestrator:
             msg_objs.append(Message(role="user", content=f"Tool '{collected_tool_call['name']}' returned:\n{result}"))
             request.messages = msg_objs
 
-        yield {"type": "done"}
+        done_event = {"type": "done"}
+        if total_usage["total_tokens"] > 0:
+            done_event["usage"] = total_usage
+        yield done_event
 
     @property
     def rag_engine(self) -> RAGEngine | None:

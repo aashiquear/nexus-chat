@@ -145,7 +145,7 @@ tools:
   graph_plotter:
     enabled: true
     name: "Graph Plotter"
-    description: "Plot graphs (line, bar, scatter, pie, parity, etc.) from CSV files or data"
+    description: "Plot graphs (line, scatter, scatter_line, bar, grouped_bar, stacked_bar, count, pie, histogram, box, violin, area, heatmap, parity, regression) with advanced formatting"
     icon: "bar-chart"
     config:
       upload_dir: "./data/uploads"
@@ -158,6 +158,17 @@ tools:
     icon: "eye"
     config:
       upload_dir: "./data/uploads"
+
+  image_synthesizer:
+    enabled: true
+    name: "Image Synthesizer"
+    description: "Analyze images using local SmolVLM vision model and return textual descriptions"
+    icon: "image"
+    config:
+      upload_dir: "./data/uploads"
+      # Optional: custom cache directory for the SmolVLM model weights.
+      # Defaults to HuggingFace's default cache (~/.cache/huggingface/).
+      # model_cache_dir: "./data/models"
 
 # ------------------------------------------------------------
 # MCP Servers (Model Context Protocol)
@@ -219,21 +230,5 @@ rag:
 # ------------------------------------------------------------
 uploads:
   max_file_size_mb: 50
-  allowed_extensions:
-    - ".txt"
-    - ".pdf"
-    - ".md"
-    - ".csv"
-    - ".json"
-    - ".py"
-    - ".js"
-    - ".html"
-    - ".docx"
-    - ".jpg"
-    - ".jpeg"
-    - ".png"
-    - ".gif"
-    - ".webp"
-    - ".bmp"
-    - ".tiff"
+  allowed_extensions: []  # Empty list = allow all file types
   upload_directory: "./data/uploads"
