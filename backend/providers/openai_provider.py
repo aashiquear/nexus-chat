@@ -70,13 +70,23 @@ class OpenAIProvider(BaseLLMProvider):
             "max_tokens": request.max_tokens,
             "temperature": request.temperature,
             "stream": True,
+            "stream_options": {"include_usage": True},
         }
         if request.tools:
             kwargs["tools"] = self._convert_tools(request.tools)
 
         try:
+            usage_data = None
             stream = await client.chat.completions.create(**kwargs)
             async for chunk in stream:
+                # Capture usage from the final chunk
+                if hasattr(chunk, "usage") and chunk.usage:
+                    usage_data = {
+                        "prompt_tokens": chunk.usage.prompt_tokens or 0,
+                        "completion_tokens": chunk.usage.completion_tokens or 0,
+                        "total_tokens": chunk.usage.total_tokens or 0,
+                    }
+
                 delta = chunk.choices[0].delta if chunk.choices else None
                 if delta and delta.content:
                     yield StreamChunk(content=delta.content)
@@ -90,7 +100,7 @@ class OpenAIProvider(BaseLLMProvider):
                             }
                         )
                 if chunk.choices and chunk.choices[0].finish_reason:
-                    yield StreamChunk(done=True)
+                    yield StreamChunk(done=True, usage=usage_data)
         except Exception as e:
             logger.error(f"OpenAI error: {e}")
             yield StreamChunk(content=f"Error: {e}", done=True)

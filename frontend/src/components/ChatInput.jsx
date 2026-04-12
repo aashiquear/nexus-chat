@@ -1,5 +1,6 @@
-import React, { useRef, useEffect } from 'react'
-import { Send, Paperclip, X } from 'lucide-react'
+import React, { useRef, useEffect, useState } from 'react'
+import { Send, Paperclip, X, BarChart2 } from 'lucide-react'
+import StatsPopup from './StatsPopup'
 
 function CircularProgress({ progress, size = 32, strokeWidth = 3 }) {
   const radius = (size - strokeWidth) / 2
@@ -54,9 +55,11 @@ export default function ChatInput({
   selectedFiles,
   onRemoveFile,
   uploadProgress,
+  conversationStats,
 }) {
   const textareaRef = useRef(null)
   const fileInputRef = useRef(null)
+  const [showStats, setShowStats] = useState(false)
 
   // Auto-resize textarea
   useEffect(() => {
@@ -112,6 +115,21 @@ export default function ChatInput({
           >
             <Paperclip size={17} />
           </button>
+          <div className="stats-btn-wrapper">
+            <button
+              className={`stats-btn ${showStats ? 'active' : ''}`}
+              onClick={() => setShowStats(!showStats)}
+              title="Conversation statistics"
+            >
+              <BarChart2 size={17} />
+            </button>
+            {showStats && conversationStats && (
+              <StatsPopup
+                stats={conversationStats}
+                onClose={() => setShowStats(false)}
+              />
+            )}
+          </div>
           <input
             ref={fileInputRef}
             type="file"

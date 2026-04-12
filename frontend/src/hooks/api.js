@@ -80,11 +80,11 @@ export async function fetchConversation(id) {
   return res.json()
 }
 
-export async function saveConversation({ id, messages, model }) {
+export async function saveConversation({ id, messages, model, token_usage }) {
   const res = await fetch(`${BASE}/api/conversations`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id, messages, model }),
+    body: JSON.stringify({ id, messages, model, token_usage }),
   })
   return res.json()
 }

@@ -72,10 +72,20 @@ class AnthropicProvider(BaseLLMProvider):
             kwargs["tools"] = self._convert_tools(request.tools)
 
         try:
+            usage_data = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
             async with client.messages.stream(**kwargs) as stream:
                 async for event in stream:
                     if hasattr(event, "type"):
-                        if event.type == "content_block_delta":
+                        if event.type == "message_start" and hasattr(event, "message"):
+                            msg_usage = getattr(event.message, "usage", None)
+                            if msg_usage:
+                                usage_data["prompt_tokens"] = getattr(msg_usage, "input_tokens", 0)
+                        elif event.type == "message_delta":
+                            delta_usage = getattr(event, "usage", None)
+                            if delta_usage:
+                                usage_data["completion_tokens"] = getattr(delta_usage, "output_tokens", 0)
+                            usage_data["total_tokens"] = usage_data["prompt_tokens"] + usage_data["completion_tokens"]
+                        elif event.type == "content_block_delta":
                             if hasattr(event.delta, "text"):
                                 yield StreamChunk(content=event.delta.text)
                             elif hasattr(event.delta, "partial_json"):
@@ -83,7 +93,7 @@ class AnthropicProvider(BaseLLMProvider):
                                     tool_call={"partial": event.delta.partial_json}
                                 )
                         elif event.type == "message_stop":
-                            yield StreamChunk(done=True)
+                            yield StreamChunk(done=True, usage=usage_data if usage_data["total_tokens"] > 0 else None)
         except Exception as e:
             logger.error(f"Anthropic error: {e}")
             yield StreamChunk(content=f"Error: {e}", done=True)

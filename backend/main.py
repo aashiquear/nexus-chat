@@ -223,6 +223,7 @@ async def save_conversation_post(request: StarletteRequest):
         conversation_id=body.get("id"),
         messages=body.get("messages", []),
         model=body.get("model", ""),
+        token_usage=body.get("token_usage"),
     )
     return result
 

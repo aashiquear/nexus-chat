@@ -55,6 +55,97 @@ function parseMarkdownTable(lines) {
   return { headers, rows }
 }
 
+// Apply inline markdown formatting: bold, italic, inline code
+function formatInline(text) {
+  return text
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+}
+
+// Render rich cell content: inline formatting + list support
+function renderCellContent(cellText) {
+  if (!cellText) return null
+
+  // Handle HTML lists: <ul><li>...</li></ul> or <ol><li>...</li></ol>
+  if (/<[uo]l>/i.test(cellText)) {
+    const html = formatInline(cellText)
+    return <span dangerouslySetInnerHTML={{ __html: html }} />
+  }
+
+  // Split on <br>, \n, or before • bullets glued together
+  // Also split glued numbered lists: "1. text2. text" → separate lines
+  const lines = cellText
+    .replace(/([^•\n])•/g, '$1\n•')
+    .replace(/(\S)(\d+\.\s)/g, '$1\n$2')
+    .split(/<br\s*\/?>|\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+
+  return renderLinesList(lines)
+}
+
+// Match unordered list markers: - or • followed by space, but NOT * (conflicts with bold **)
+const BULLET_RE = /^[-•]\s+(.+)$/
+// Match ordered list: "1. text", "2. text"
+const ORDERED_RE = /^\d+\.\s+(.+)$/
+
+// Shared helper: convert an array of text lines into React elements,
+// recognizing list markers and applying inline formatting.
+function renderLinesList(lines, keyPrefix = '') {
+  const parts = []
+  let bulletItems = []
+  let orderedItems = []
+
+  const flushBullets = () => {
+    if (bulletItems.length === 0) return
+    parts.push(
+      <ul key={`${keyPrefix}ul-${parts.length}`} className="cell-list">
+        {bulletItems.splice(0).map((item, j) => (
+          <li key={j} dangerouslySetInnerHTML={{ __html: formatInline(item) }} />
+        ))}
+      </ul>
+    )
+  }
+
+  const flushOrdered = () => {
+    if (orderedItems.length === 0) return
+    parts.push(
+      <ol key={`${keyPrefix}ol-${parts.length}`} className="cell-list">
+        {orderedItems.splice(0).map((item, j) => (
+          <li key={j} dangerouslySetInnerHTML={{ __html: formatInline(item) }} />
+        ))}
+      </ol>
+    )
+  }
+
+  for (const line of lines) {
+    const bulletMatch = line.match(BULLET_RE)
+    const orderedMatch = line.match(ORDERED_RE)
+    if (bulletMatch) {
+      flushOrdered()
+      bulletItems.push(bulletMatch[1])
+    } else if (orderedMatch) {
+      flushBullets()
+      orderedItems.push(orderedMatch[1])
+    } else {
+      flushBullets()
+      flushOrdered()
+      parts.push(
+        <span key={`${keyPrefix}t-${parts.length}`} dangerouslySetInnerHTML={{ __html: formatInline(line) }} />
+      )
+    }
+  }
+  flushBullets()
+  flushOrdered()
+
+  if (parts.length === 0) {
+    return <span dangerouslySetInnerHTML={{ __html: formatInline(lines.join(' ')) }} />
+  }
+  if (parts.length === 1) return parts[0]
+  return <>{parts}</>
+}
+
 // Markdown-like renderer with tables & rich code blocks
 function renderContent(text) {
   if (!text) return null
@@ -98,7 +189,7 @@ function renderContent(text) {
                 <thead>
                   <tr>
                     {table.headers.map((h, hi) => (
-                      <th key={hi}>{h}</th>
+                      <th key={hi}>{renderCellContent(h)}</th>
                     ))}
                   </tr>
                 </thead>
@@ -106,7 +197,7 @@ function renderContent(text) {
                   {table.rows.map((row, ri) => (
                     <tr key={ri}>
                       {row.map((cell, ci) => (
-                        <td key={ci}>{cell}</td>
+                        <td key={ci}>{renderCellContent(cell)}</td>
                       ))}
                     </tr>
                   ))}
@@ -126,16 +217,80 @@ function renderContent(text) {
         continue
       }
 
-      // Process inline formatting
-      let processed = line
-        .replace(/`([^`]+)`/g, '<code>$1</code>')
-        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+      // Detect bullet lines: • or - at start (not * which conflicts with bold)
+      // Also detect • glued mid-line, or numbered lists glued together
+      if (/•/.test(line) || /^[-•]\s+/.test(line.trim()) || /^\d+\.\s+/.test(line.trim())) {
+        // Split glued • bullets and glued numbered items into separate lines
+        const splitLines = line
+          .replace(/([^•\n])•/g, '$1\n•')
+          .replace(/(\S)(\d+\.\s)/g, '$1\n$2')
+          .split('\n')
+          .map((l) => l.trim())
+          .filter(Boolean)
+
+        // For single-line items (not glued), also collect consecutive list lines
+        if (splitLines.length === 1) {
+          const isBullet = BULLET_RE.test(splitLines[0])
+          const isOrdered = ORDERED_RE.test(splitLines[0])
+          if (isBullet || isOrdered) {
+            const re = isBullet ? BULLET_RE : ORDERED_RE
+            const collected = [splitLines[0]]
+            while (idx < textLines.length && re.test(textLines[idx].trim())) {
+              collected.push(textLines[idx].trim())
+              idx++
+            }
+            const Tag = isBullet ? 'ul' : 'ol'
+            elements.push(
+              <Tag key={`${i}-${idx}-clist`} className="md-list">
+                {collected.map((item, j) => {
+                  const content = item.replace(isBullet ? /^[-•]\s+/ : /^\d+\.\s+/, '')
+                  return (
+                    <li key={j} dangerouslySetInnerHTML={{ __html: formatInline(content) }} />
+                  )
+                })}
+              </Tag>
+            )
+            continue
+          }
+        }
+
+        // Check if they're bullet items (- or •, NOT *)
+        const allBullets = splitLines.length > 1 && splitLines.every((l) => BULLET_RE.test(l))
+        if (allBullets) {
+          elements.push(
+            <ul key={`${i}-${idx}-list`} className="md-list">
+              {splitLines.map((item, j) => {
+                const content = item.replace(/^[-•]\s+/, '')
+                return (
+                  <li key={j} dangerouslySetInnerHTML={{ __html: formatInline(content) }} />
+                )
+              })}
+            </ul>
+          )
+          continue
+        }
+
+        // Check if they're numbered list items
+        const allOrdered = splitLines.length > 1 && splitLines.every((l) => ORDERED_RE.test(l))
+        if (allOrdered) {
+          elements.push(
+            <ol key={`${i}-${idx}-olist`} className="md-list">
+              {splitLines.map((item, j) => {
+                const content = item.replace(/^\d+\.\s+/, '')
+                return (
+                  <li key={j} dangerouslySetInnerHTML={{ __html: formatInline(content) }} />
+                )
+              })}
+            </ol>
+          )
+          continue
+        }
+      }
 
       elements.push(
         <p
           key={`${i}-${idx}`}
-          dangerouslySetInnerHTML={{ __html: processed }}
+          dangerouslySetInnerHTML={{ __html: formatInline(line) }}
         />
       )
     }

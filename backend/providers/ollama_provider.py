@@ -120,7 +120,16 @@ class OllamaProvider(BaseLLMProvider):
                             yield StreamChunk(content=content)
 
                         if data.get("done", False):
-                            yield StreamChunk(done=True)
+                            usage_data = None
+                            prompt_tokens = data.get("prompt_eval_count", 0)
+                            completion_tokens = data.get("eval_count", 0)
+                            if prompt_tokens or completion_tokens:
+                                usage_data = {
+                                    "prompt_tokens": prompt_tokens,
+                                    "completion_tokens": completion_tokens,
+                                    "total_tokens": prompt_tokens + completion_tokens,
+                                }
+                            yield StreamChunk(done=True, usage=usage_data)
         except httpx.ConnectError:
             yield StreamChunk(
                 content="Cannot connect to Ollama. Ensure it is running.",

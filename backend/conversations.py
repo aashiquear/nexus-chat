@@ -77,6 +77,7 @@ def save_conversation(
     conversation_id: str | None,
     messages: list[dict],
     model: str = "",
+    token_usage: list[dict] | None = None,
 ) -> dict:
     """Create or update a conversation. Returns the saved metadata."""
     now = datetime.now(timezone.utc).isoformat()
@@ -91,6 +92,8 @@ def save_conversation(
         existing["model"] = model or existing.get("model", "")
         existing["updated_at"] = now
         existing["title"] = _derive_title(messages)
+        if token_usage is not None:
+            existing["token_usage"] = token_usage
         data = existing
     else:
         cid = conversation_id or uuid.uuid4().hex[:12]
@@ -102,6 +105,8 @@ def save_conversation(
             "updated_at": now,
             "messages": messages,
         }
+        if token_usage is not None:
+            data["token_usage"] = token_usage
 
     path = _path(data["id"])
     path.write_text(json.dumps(data, indent=2))
