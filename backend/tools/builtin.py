@@ -5,12 +5,15 @@ import math
 import operator
 import datetime as dt
 import json
+import logging
 import subprocess
 import tempfile
 import os
 from pathlib import Path
 
 from . import BaseTool, register_tool
+
+logger = logging.getLogger(__name__)
 
 
 @register_tool("calculator")
@@ -215,7 +218,7 @@ class WebSearchTool(BaseTool):
 
         # Try duckduckgo-search library with retry on rate-limit
         try:
-            import time
+            import asyncio
             from duckduckgo_search import DDGS
             last_err = None
             for attempt in range(3):
@@ -236,31 +239,71 @@ class WebSearchTool(BaseTool):
                 except Exception as e:
                     last_err = e
                     if "Ratelimit" in str(e) and attempt < 2:
-                        time.sleep(2 ** attempt)  # 1s, 2s backoff
+                        await asyncio.sleep(2 ** attempt)
                         continue
                     break  # non-ratelimit error — fall through
+            if last_err:
+                logger.warning("duckduckgo-search failed: %s", last_err)
         except ImportError:
             pass  # library not installed — fall through
 
-        # Fallback: DuckDuckGo Instant Answer API
+        # Fallback: DuckDuckGo HTML search scrape
         try:
             import httpx
-            async with httpx.AsyncClient(timeout=15) as client:
+            from html import unescape
+            import re as _re
+            async with httpx.AsyncClient(
+                timeout=15,
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"},
+                follow_redirects=True,
+            ) as client:
                 resp = await client.get(
+                    "https://html.duckduckgo.com/html/",
+                    params={"q": query},
+                )
+                html_text = resp.text
+                results = []
+                # Parse result blocks from DuckDuckGo HTML
+                result_blocks = _re.findall(
+                    r'<a[^>]+class="result__a"[^>]+href="([^"]*)"[^>]*>(.*?)</a>.*?'
+                    r'<a[^>]+class="result__snippet"[^>]*>(.*?)</a>',
+                    html_text,
+                    _re.DOTALL,
+                )
+                for url, title, snippet in result_blocks[:num]:
+                    # Clean HTML tags from title and snippet
+                    clean_title = _re.sub(r'<[^>]+>', '', unescape(title)).strip()
+                    clean_snippet = _re.sub(r'<[^>]+>', '', unescape(snippet)).strip()
+                    # DuckDuckGo wraps URLs in a redirect; extract actual URL
+                    url_match = _re.search(r'uddg=([^&]+)', url)
+                    actual_url = unescape(url_match.group(1)) if url_match else url
+                    if clean_title or clean_snippet:
+                        results.append({
+                            "title": clean_title,
+                            "text": clean_snippet,
+                            "url": actual_url,
+                        })
+                if results:
+                    return json.dumps({"query": query, "results": results})
+
+                # Final fallback: Instant Answer API for factual queries
+                resp2 = await client.get(
                     "https://api.duckduckgo.com/",
                     params={"q": query, "format": "json", "no_html": 1},
                 )
-                data = resp.json()
-                results = []
+                data = resp2.json()
+                ia_results = []
                 for topic in data.get("RelatedTopics", [])[:num]:
                     if "Text" in topic:
-                        results.append({
+                        ia_results.append({
                             "text": topic["Text"],
                             "url": topic.get("FirstURL", ""),
                         })
-                return json.dumps({
-                    "query": query,
-                    "results": results or [{"text": data.get("Abstract") or "No results found"}],
-                })
+                abstract = data.get("Abstract", "")
+                if ia_results:
+                    return json.dumps({"query": query, "results": ia_results})
+                elif abstract:
+                    return json.dumps({"query": query, "results": [{"text": abstract}]})
+                return json.dumps({"query": query, "results": [{"text": "No results found for this query. Try rephrasing or using different keywords."}]})
         except Exception as e:
             return json.dumps({"error": str(e), "query": query})
