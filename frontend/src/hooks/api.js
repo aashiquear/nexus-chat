@@ -18,15 +18,32 @@ export async function fetchFiles() {
   return data.files || []
 }
 
-export async function uploadFile(file) {
-  const form = new FormData()
-  form.append('file', file)
-  const res = await fetch(`${BASE}/api/upload`, { method: 'POST', body: form })
-  if (!res.ok) {
-    const err = await res.json()
-    throw new Error(err.detail || 'Upload failed')
-  }
-  return res.json()
+export async function uploadFile(file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const form = new FormData()
+    form.append('file', file)
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', `${BASE}/api/upload`)
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) {
+        onProgress(Math.round((e.loaded / e.total) * 100))
+      }
+    }
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(JSON.parse(xhr.responseText))
+      } else {
+        try {
+          const err = JSON.parse(xhr.responseText)
+          reject(new Error(err.detail || 'Upload failed'))
+        } catch (_e) {
+          reject(new Error('Upload failed'))
+        }
+      }
+    }
+    xhr.onerror = () => reject(new Error('Upload failed'))
+    xhr.send(form)
+  })
 }
 
 export async function deleteFile(filename) {

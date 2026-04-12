@@ -32,6 +32,9 @@ export default function App() {
   // Canvas panel state (right-side panel for graphs)
   const [canvasData, setCanvasData] = useState(null)
 
+  // Upload progress state: { filename, progress (0-100) } or null
+  const [uploadProgress, setUploadProgress] = useState(null)
+
   const chatEndRef = useRef(null)
   const chatAreaRef = useRef(null)
   const streamBufferRef = useRef('')
@@ -107,13 +110,18 @@ export default function App() {
   // Upload
   const handleUpload = async (file) => {
     try {
-      await uploadFile(file)
+      setUploadProgress({ filename: file.name, progress: 0 })
+      await uploadFile(file, (progress) => {
+        setUploadProgress({ filename: file.name, progress })
+      })
+      setUploadProgress(null)
       const updatedFiles = await fetchFiles()
       setFiles(updatedFiles)
       if (!selectedFiles.includes(file.name)) {
         setSelectedFiles((prev) => [...prev, file.name])
       }
     } catch (err) {
+      setUploadProgress(null)
       alert(`Upload failed: ${err.message}`)
     }
   }
@@ -362,6 +370,7 @@ export default function App() {
         onToggleFile={toggleFile}
         onUpload={handleUpload}
         onDeleteFile={handleDeleteFile}
+        uploadProgress={uploadProgress}
         conversations={conversations}
         activeConversationId={activeConversationId}
         onSelectConversation={handleSelectConversation}
@@ -431,6 +440,7 @@ export default function App() {
           disabled={isStreaming || !isConnected}
           selectedFiles={selectedFiles}
           onRemoveFile={removeFile}
+          uploadProgress={uploadProgress}
         />
       </div>
 

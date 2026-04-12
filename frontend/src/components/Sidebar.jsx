@@ -56,6 +56,7 @@ export default function Sidebar({
   onToggleFile,
   onUpload,
   onDeleteFile,
+  uploadProgress,
   conversations,
   activeConversationId,
   onSelectConversation,
@@ -197,6 +198,8 @@ export default function Sidebar({
                 const mcpTools = tools.filter(
                   (t) => t.source === 'mcp' && t.server === srv.id
                 )
+                const allSelected = mcpTools.length > 0 && mcpTools.every((t) => selectedTools.includes(t.id))
+                const someSelected = mcpTools.some((t) => selectedTools.includes(t.id))
                 return (
                   <div key={srv.id} style={{ marginBottom: 4 }}>
                     <div
@@ -208,6 +211,26 @@ export default function Sidebar({
                         fontSize: 12,
                       }}
                     >
+                      <div
+                        className={`toggle-check ${allSelected ? 'active' : ''} ${someSelected && !allSelected ? 'partial' : ''}`}
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => {
+                          const toolIds = mcpTools.map((t) => t.id)
+                          if (allSelected) {
+                            // Deselect all tools from this server
+                            toolIds.forEach((id) => onToggleTool(id))
+                          } else {
+                            // Select all tools from this server
+                            toolIds.forEach((id) => {
+                              if (!selectedTools.includes(id)) onToggleTool(id)
+                            })
+                          }
+                        }}
+                        title={allSelected ? 'Deselect all' : 'Select all'}
+                      >
+                        {allSelected && <Check size={11} color="#fff" strokeWidth={3} />}
+                        {someSelected && !allSelected && <span style={{ color: '#fff', fontSize: 10, fontWeight: 700 }}>–</span>}
+                      </div>
                       <Server size={13} style={{ opacity: 0.6 }} />
                       <span style={{ fontWeight: 500, flex: 1 }}>{srv.name}</span>
                       <span
@@ -305,6 +328,27 @@ export default function Sidebar({
                 </div>
               )
             })}
+
+            {/* Upload progress indicator */}
+            {uploadProgress && (
+              <div className="upload-progress-item">
+                <FileText size={15} className="toggle-icon" />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="toggle-label" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {uploadProgress.filename}
+                  </div>
+                  <div className="upload-progress-bar-track">
+                    <div
+                      className="upload-progress-bar-fill"
+                      style={{ width: `${uploadProgress.progress}%` }}
+                    />
+                  </div>
+                  <div className="toggle-desc" style={{ marginTop: 2 }}>
+                    {uploadProgress.progress}% uploading...
+                  </div>
+                </div>
+              </div>
+            )}
 
             <button
               className="new-chat-btn"

@@ -208,6 +208,11 @@ body {
   border-color: var(--accent);
 }
 
+.toggle-check.partial {
+  background: var(--accent-light);
+  border-color: var(--accent-light);
+}
+
 .toggle-check.active svg {
   opacity: 1;
 }
@@ -505,6 +510,16 @@ body {
   color: var(--text-primary);
 }
 
+/* User message shaded box */
+.message-user .message-body {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 12px 16px 12px 16px;
+  margin-left: 34px;
+  padding-left: 16px;
+}
+
 .message-body p { margin-bottom: 8px; }
 .message-body p:last-child { margin-bottom: 0; }
 
@@ -528,6 +543,123 @@ body {
 .message-body pre code {
   background: none;
   padding: 0;
+}
+
+/* ---- Code Block with Copy Button ---- */
+.code-block-wrapper {
+  margin: 8px 0;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-code);
+}
+
+.code-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-light);
+  min-height: 28px;
+}
+
+.code-block-lang {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-transform: lowercase;
+}
+
+.code-block-copy {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-family: var(--font-body);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.code-block-copy:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.code-block-copy.copied {
+  color: var(--success);
+}
+
+.code-block-pre {
+  padding: 14px;
+  margin: 0;
+  overflow-x: auto;
+  max-height: 400px;
+  overflow-y: auto;
+  background: none;
+  border: none;
+}
+
+.code-block-pre code {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  background: none;
+  padding: 0;
+}
+
+/* ---- Markdown Table ---- */
+.md-table-wrapper {
+  margin: 8px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow-x: hidden;
+  overflow-y: auto;
+  max-height: 400px;
+  max-width: 100%;
+}
+
+.md-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  table-layout: fixed;
+}
+
+.md-table th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-tertiary);
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-secondary);
+  border-bottom: 2px solid var(--border);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  z-index: 1;
+}
+
+.md-table td {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-primary);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.md-table tbody tr:hover {
+  background: var(--bg-panel-hover);
+}
+
+.md-table tbody tr:last-child td {
+  border-bottom: none;
 }
 
 /* ---- Collapsible Tool Reasoning Dropdowns ---- */
@@ -919,6 +1051,33 @@ body {
   margin-bottom: 6px;
 }
 
+/* Circular upload progress chip above input */
+.upload-progress-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  margin-bottom: 6px;
+  background: var(--accent-subtle);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-md);
+  animation: fadeIn 0.25s ease;
+}
+
+.upload-progress-chip-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+.circular-progress {
+  flex-shrink: 0;
+}
+
 .file-chip {
   display: flex;
   align-items: center;
@@ -960,6 +1119,31 @@ body {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-subtle);
+}
+
+/* ---- Upload Progress ---- */
+.upload-progress-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 16px;
+  opacity: 0.85;
+}
+
+.upload-progress-bar-track {
+  width: 100%;
+  height: 4px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.upload-progress-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: var(--radius-full);
+  transition: width 0.2s ease;
 }
 
 /* ---- Right-side Canvas Panel ---- */

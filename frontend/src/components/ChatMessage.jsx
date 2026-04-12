@@ -1,10 +1,61 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import {
   User, Bot, Wrench, CheckCircle2, ChevronDown, ChevronRight,
-  BarChart3, Image as ImageIcon, Eye,
+  BarChart3, Image as ImageIcon, Eye, Copy, Check as CheckIcon,
 } from 'lucide-react'
 
-// Simple markdown-like renderer (no dependency needed for basics)
+// Copy-to-clipboard code block wrapper
+function CodeBlock({ code, lang }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }, [code])
+
+  return (
+    <div className="code-block-wrapper">
+      <div className="code-block-header">
+        {lang && <span className="code-block-lang">{lang}</span>}
+        <button
+          className={`code-block-copy ${copied ? 'copied' : ''}`}
+          onClick={handleCopy}
+          title="Copy code"
+        >
+          {copied ? <CheckIcon size={12} /> : <Copy size={12} />}
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+      <pre className="code-block-pre">
+        <code>{code}</code>
+      </pre>
+    </div>
+  )
+}
+
+// Parse markdown table lines into a structured table
+function parseMarkdownTable(lines) {
+  if (lines.length < 2) return null
+
+  const parseRow = (line) =>
+    line.split('|').map((c) => c.trim()).filter((c, i, arr) =>
+      // filter out leading/trailing empty cells from || borders
+      !(c === '' && (i === 0 || i === arr.length - 1))
+    )
+
+  const headers = parseRow(lines[0])
+  // Check separator row (e.g. |---|---|)
+  const sep = lines[1]
+  if (!/^[\s|:-]+$/.test(sep)) return null
+
+  const rows = lines.slice(2).map(parseRow)
+
+  return { headers, rows }
+}
+
+// Markdown-like renderer with tables & rich code blocks
 function renderContent(text) {
   if (!text) return null
 
@@ -18,16 +69,62 @@ function renderContent(text) {
       const firstNewline = lines.indexOf('\n')
       const lang = firstNewline > 0 ? lines.slice(0, firstNewline).trim() : ''
       const code = firstNewline > 0 ? lines.slice(firstNewline + 1) : lines
-      return (
-        <pre key={i}>
-          <code>{code}</code>
-        </pre>
-      )
+      return <CodeBlock key={i} code={code} lang={lang} />
     }
 
-    // Regular text: handle inline code, bold, links
-    return part.split('\n').map((line, j) => {
-      if (!line.trim()) return <br key={`${i}-${j}`} />
+    // Regular text: handle tables, inline code, bold, links
+    const textLines = part.split('\n')
+    const elements = []
+    let idx = 0
+
+    while (idx < textLines.length) {
+      // Detect markdown table: line starts with | and next line is separator
+      if (
+        textLines[idx].trim().startsWith('|') &&
+        idx + 1 < textLines.length &&
+        /^[\s|:-]+$/.test(textLines[idx + 1])
+      ) {
+        // Collect all contiguous table lines
+        const tableLines = []
+        while (idx < textLines.length && textLines[idx].trim().startsWith('|')) {
+          tableLines.push(textLines[idx])
+          idx++
+        }
+        const table = parseMarkdownTable(tableLines)
+        if (table) {
+          elements.push(
+            <div key={`${i}-table-${idx}`} className="md-table-wrapper">
+              <table className="md-table">
+                <thead>
+                  <tr>
+                    {table.headers.map((h, hi) => (
+                      <th key={hi}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {table.rows.map((row, ri) => (
+                    <tr key={ri}>
+                      {row.map((cell, ci) => (
+                        <td key={ci}>{cell}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+          continue
+        }
+      }
+
+      const line = textLines[idx]
+      idx++
+
+      if (!line.trim()) {
+        elements.push(<br key={`${i}-${idx}`} />)
+        continue
+      }
 
       // Process inline formatting
       let processed = line
@@ -35,13 +132,15 @@ function renderContent(text) {
         .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
         .replace(/\*([^*]+)\*/g, '<em>$1</em>')
 
-      return (
+      elements.push(
         <p
-          key={`${i}-${j}`}
+          key={`${i}-${idx}`}
           dangerouslySetInnerHTML={{ __html: processed }}
         />
       )
-    })
+    }
+
+    return elements
   })
 }
 
@@ -139,7 +238,7 @@ export default function ChatMessage({ message, onOpenCanvas }) {
   })
 
   return (
-    <div className="message">
+    <div className={`message ${isUser ? 'message-user' : ''}`}>
       <div className="message-header">
         <div className={`message-avatar ${message.role}`}>
           {isUser ? <User size={14} /> : <Bot size={14} />}
@@ -149,7 +248,7 @@ export default function ChatMessage({ message, onOpenCanvas }) {
         </span>
       </div>
       <div className="message-body">
-        {renderContent(message.content)}
+        {isUser ? <p>{message.content}</p> : renderContent(message.content)}
 
         {/* Collapsible tool reasoning */}
         {toolPairs.length > 0 && (
