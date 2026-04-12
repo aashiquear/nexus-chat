@@ -19,6 +19,32 @@ const ICON_MAP = {
   eye: Eye,
 }
 
+function AccordionSection({ label, count, isOpen, onToggle, children }) {
+  const Chevron = isOpen ? ChevronDown : ChevronRight
+
+  return (
+    <div className={`accordion-section ${isOpen ? 'accordion-section-open' : ''}`}>
+      <button
+        className="collapsible-header"
+        onClick={onToggle}
+      >
+        <Chevron size={13} className="collapsible-chevron" />
+        <span className="sidebar-section-label" style={{ marginBottom: 0 }}>
+          {label}
+        </span>
+        {count > 0 && (
+          <span className="collapsible-count">{count}</span>
+        )}
+      </button>
+      {isOpen && (
+        <div className="accordion-body">
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function CollapsibleSection({ label, count, defaultOpen = false, children }) {
   const [open, setOpen] = useState(defaultOpen)
   const Chevron = open ? ChevronDown : ChevronRight
@@ -66,6 +92,10 @@ export default function Sidebar({
   onClose,
 }) {
   const fileInputRef = React.useRef(null)
+
+  // Accordion state: only one of 'tools', 'mcp', 'rag' open at a time
+  const [openSection, setOpenSection] = useState('tools')
+  const toggleSection = (key) => setOpenSection((prev) => prev === key ? null : key)
 
   const handleUploadClick = () => fileInputRef.current?.click()
 
@@ -168,7 +198,12 @@ export default function Sidebar({
 
         <div className="sidebar-body">
           {/* Built-in Tools */}
-          <CollapsibleSection label="Tools" count={activeBuiltinCount} defaultOpen>
+          <AccordionSection
+            label="Tools"
+            count={activeBuiltinCount}
+            isOpen={openSection === 'tools'}
+            onToggle={() => toggleSection('tools')}
+          >
             {builtinTools.map((tool) => {
               const active = selectedTools.includes(tool.id)
               const Icon = ICON_MAP[tool.icon] || Wrench
@@ -189,11 +224,16 @@ export default function Sidebar({
                 </div>
               )
             })}
-          </CollapsibleSection>
+          </AccordionSection>
 
           {/* MCP Servers */}
           {mcpServers && mcpServers.length > 0 && (
-            <CollapsibleSection label="MCP Servers" count={mcpToolCount} defaultOpen>
+            <AccordionSection
+              label="MCP Servers"
+              count={mcpToolCount}
+              isOpen={openSection === 'mcp'}
+              onToggle={() => toggleSection('mcp')}
+            >
               {mcpServers.map((srv) => {
                 const mcpTools = tools.filter(
                   (t) => t.source === 'mcp' && t.server === srv.id
@@ -282,11 +322,16 @@ export default function Sidebar({
                   </div>
                 )
               })}
-            </CollapsibleSection>
+            </AccordionSection>
           )}
 
           {/* Files */}
-          <CollapsibleSection label="Files (RAG)" count={activeFileCount}>
+          <AccordionSection
+            label="Files (RAG)"
+            count={activeFileCount}
+            isOpen={openSection === 'rag'}
+            onToggle={() => toggleSection('rag')}
+          >
             {files.length === 0 && (
               <div style={{ padding: '4px 16px', fontSize: 12.5, color: 'var(--text-tertiary)' }}>
                 No files uploaded yet
@@ -364,7 +409,7 @@ export default function Sidebar({
               hidden
               onChange={handleFileChange}
             />
-          </CollapsibleSection>
+          </AccordionSection>
         </div>
       </aside>
     </>
