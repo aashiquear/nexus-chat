@@ -55,10 +55,13 @@ function parseMarkdownTable(lines) {
   return { headers, rows }
 }
 
-// Apply inline markdown formatting: bold, italic, inline code
+// Apply inline markdown formatting: bold, italic, inline code, links, strikethrough, images
 function formatInline(text) {
   return text
     .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="md-inline-img" />')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    .replace(/~~([^~]+)~~/g, '<del>$1</del>')
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
 }
@@ -214,6 +217,44 @@ function renderContent(text) {
 
       if (!line.trim()) {
         elements.push(<br key={`${i}-${idx}`} />)
+        continue
+      }
+
+      // Headings: # to ######
+      const headingMatch = line.match(/^(#{1,6})\s+(.+)$/)
+      if (headingMatch) {
+        const level = headingMatch[1].length
+        const Tag = `h${level}`
+        elements.push(
+          <Tag
+            key={`${i}-${idx}`}
+            className={`md-heading md-h${level}`}
+            dangerouslySetInnerHTML={{ __html: formatInline(headingMatch[2]) }}
+          />
+        )
+        continue
+      }
+
+      // Horizontal rule: ---, ***, ___
+      if (/^[-*_]{3,}\s*$/.test(line.trim())) {
+        elements.push(<hr key={`${i}-${idx}`} className="md-hr" />)
+        continue
+      }
+
+      // Blockquote: > text (collect consecutive > lines)
+      if (/^>\s?/.test(line.trim())) {
+        const quoteLines = [line.replace(/^>\s?/, '')]
+        while (idx < textLines.length && /^>\s?/.test(textLines[idx].trim())) {
+          quoteLines.push(textLines[idx].replace(/^>\s?/, ''))
+          idx++
+        }
+        elements.push(
+          <blockquote
+            key={`${i}-${idx}-bq`}
+            className="md-blockquote"
+            dangerouslySetInnerHTML={{ __html: quoteLines.map(formatInline).join('<br/>') }}
+          />
+        )
         continue
       }
 
