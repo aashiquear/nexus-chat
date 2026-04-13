@@ -99,9 +99,21 @@ export default function App() {
 
   // Toggle helpers
   const toggleTool = (id) => {
-    setSelectedTools((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    )
+    // Check if this tool is a toolkit with grouped children
+    const tool = tools.find((t) => t.id === id)
+    const childIds = tool?.children || []
+
+    setSelectedTools((prev) => {
+      if (prev.includes(id)) {
+        // Deactivating: remove toolkit and all its children
+        const toRemove = new Set([id, ...childIds])
+        return prev.filter((x) => !toRemove.has(x))
+      } else {
+        // Activating: add toolkit and all its children
+        const toAdd = [id, ...childIds].filter((x) => !prev.includes(x))
+        return [...prev, ...toAdd]
+      }
+    })
   }
 
   const toggleFile = (name) => {

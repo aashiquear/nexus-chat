@@ -12,6 +12,7 @@ MCPClient wraps a single server; MCPManager owns all configured servers.
 
 import json
 import logging
+from collections import defaultdict
 from typing import Any
 
 import httpx
@@ -161,11 +162,34 @@ class MCPManager:
         return tools
 
     def get_tool_info(self) -> list[dict]:
-        """Return metadata suitable for the /api/tools endpoint."""
+        """Return metadata suitable for the /api/tools endpoint.
+
+        Supports the toolkit grouping protocol: tools with a ``toolkit``
+        field are hidden from the sidebar.  Their parent toolkit entry
+        (which has *no* ``toolkit`` field) gets a ``children`` list with
+        the IDs of all grouped sub-tools so the frontend can
+        activate/deactivate them together.
+
+        MCP servers that do **not** use the ``toolkit`` field continue to
+        work unchanged — every tool appears individually.
+        """
         items = []
         for server_id, client in self._clients.items():
+            # Build a mapping: toolkit_name -> [child tool IDs]
+            toolkit_children: dict[str, list[str]] = defaultdict(list)
             for tool in client.tools:
-                items.append({
+                parent = tool.get("toolkit")
+                if parent is not None:
+                    toolkit_children[parent].append(
+                        f"mcp:{server_id}:{tool['name']}"
+                    )
+
+            # Only expose sidebar-visible entries (those without a
+            # ``toolkit`` field).
+            for tool in client.tools:
+                if tool.get("toolkit") is not None:
+                    continue
+                item = {
                     "id": f"mcp:{server_id}:{tool['name']}",
                     "name": tool.get("name", ""),
                     "description": tool.get("description", ""),
@@ -174,7 +198,11 @@ class MCPManager:
                     "server": server_id,
                     "server_name": client.name,
                     "connected": client.is_connected,
-                })
+                }
+                children = toolkit_children.get(tool["name"])
+                if children:
+                    item["children"] = children
+                items.append(item)
         return items
 
     async def call_tool(self, server_id: str, tool_name: str, arguments: dict) -> str:
