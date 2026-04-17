@@ -525,8 +525,41 @@ export default function ChatMessage({ message, onOpenCanvas }) {
 
           // Plotly JSON — render interactive chart inline
           if (parsed.figure_json) {
-            const figData = typeof parsed.figure_json === 'string'
-              ? JSON.parse(parsed.figure_json) : parsed.figure_json
+            let figData = null
+            let figureJsonError = null
+
+            if (typeof parsed.figure_json === 'string') {
+              try {
+                figData = JSON.parse(parsed.figure_json)
+              } catch (_e) {
+                figureJsonError = 'Invalid plot JSON'
+              }
+            } else if (typeof parsed.figure_json === 'object' && parsed.figure_json !== null) {
+              figData = parsed.figure_json
+            } else {
+              figureJsonError = 'Unsupported plot JSON format'
+            }
+
+            if (!figData || typeof figData !== 'object') {
+              return (
+                <div key={`plotly-${i}`} className="plot-result-card plotly-result-card">
+                  <div className="plot-result-header">
+                    <BarChart3 size={14} />
+                    <span>{parsed.title || 'Interactive Plot'}</span>
+                  </div>
+                  <div className="plot-result-footer">
+                    <span className="plot-result-meta">
+                      {figureJsonError || 'Unable to render interactive plot'}
+                    </span>
+                  </div>
+                  <pre className="message-pre">
+                    {typeof parsed.figure_json === 'string'
+                      ? parsed.figure_json
+                      : JSON.stringify(parsed.figure_json, null, 2)}
+                  </pre>
+                </div>
+              )
+            }
             const layout = {
               ...(figData.layout || {}),
               autosize: true,
