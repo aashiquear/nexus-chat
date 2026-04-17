@@ -31,6 +31,8 @@ export default function App() {
 
   // Canvas panel state (right-side panel for graphs)
   const [canvasData, setCanvasData] = useState(null)
+  const [canvasWidth, setCanvasWidth] = useState(null) // null = auto-calculate initial
+  const isDraggingRef = useRef(false)
 
   // Upload progress state: { filename, progress (0-100) } or null
   const [uploadProgress, setUploadProgress] = useState(null)
@@ -220,6 +222,34 @@ export default function App() {
   // Open canvas panel for a graph
   const handleOpenCanvas = useCallback((data) => {
     setCanvasData(data)
+    setCanvasWidth(null) // reset to auto-calculate on each new open
+  }, [])
+
+  // Canvas divider drag-to-resize
+  const handleDividerMouseDown = useCallback((e) => {
+    e.preventDefault()
+    isDraggingRef.current = true
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    const onMouseMove = (e) => {
+      if (!isDraggingRef.current) return
+      const newWidth = window.innerWidth - e.clientX
+      const minWidth = 300
+      const maxWidth = window.innerWidth * 0.7
+      setCanvasWidth(Math.max(minWidth, Math.min(maxWidth, newWidth)))
+    }
+
+    const onMouseUp = () => {
+      isDraggingRef.current = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
   }, [])
 
   // Compute conversation statistics from messages and token history
@@ -543,12 +573,19 @@ export default function App() {
 
       {/* Right-side Canvas Panel for graphs */}
       {canvasData && (
-        <CanvasPanel
-          image={canvasData.image}
-          figureJson={canvasData.figureJson}
-          title={canvasData.title}
-          onClose={() => setCanvasData(null)}
-        />
+        <>
+          <div
+            className="canvas-divider"
+            onMouseDown={handleDividerMouseDown}
+          />
+          <CanvasPanel
+            image={canvasData.image}
+            figureJson={canvasData.figureJson}
+            title={canvasData.title}
+            onClose={() => setCanvasData(null)}
+            style={canvasWidth ? { width: canvasWidth } : undefined}
+          />
+        </>
       )}
     </div>
   )

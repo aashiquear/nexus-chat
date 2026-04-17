@@ -222,10 +222,13 @@ class ChatOrchestrator:
             stream=True,
         )
 
-        # Agentic loop (max 5 tool rounds)
+        # Agentic loop — up to 15 rounds on success, stops after 5 consecutive failures
         total_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+        max_rounds = 15
+        max_consecutive_failures = 5
+        consecutive_failures = 0
 
-        for _round in range(5):
+        for _round in range(max_rounds):
             collected_text = ""
             collected_tool_call = None
             tool_call_buffer = ""
@@ -279,6 +282,20 @@ class ChatOrchestrator:
                 "name": collected_tool_call["name"],
                 "result": result,
             }
+
+            # Track consecutive failures
+            try:
+                parsed_result = json.loads(result)
+                if isinstance(parsed_result, dict) and "error" in parsed_result:
+                    consecutive_failures += 1
+                else:
+                    consecutive_failures = 0
+            except (json.JSONDecodeError, TypeError):
+                consecutive_failures = 0
+
+            if consecutive_failures >= max_consecutive_failures:
+                yield {"type": "text", "content": "\n\n*Stopping: too many consecutive tool failures.*"}
+                break
 
             # Append assistant + tool result to messages for next round
             msg_objs.append(Message(role="assistant", content=collected_text or f"Using tool: {collected_tool_call['name']}"))

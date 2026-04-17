@@ -5,7 +5,7 @@ import Plotly from 'plotly.js-dist-min'
 
 const Plot = createPlotlyComponent(Plotly)
 
-export default function CanvasPanel({ image, figureJson, title, onClose }) {
+export default function CanvasPanel({ image, figureJson, title, onClose, style }) {
   const [downloading, setDownloading] = useState(false)
 
   if (!image && !figureJson) return null
@@ -55,7 +55,7 @@ export default function CanvasPanel({ image, figureJson, title, onClose }) {
   } : null
 
   return (
-    <div className="canvas-panel">
+    <div className="canvas-panel" style={style}>
       <div className="canvas-panel-header">
         <div className="canvas-panel-title">
           <BarChart3 size={15} />
