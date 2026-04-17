@@ -1,9 +1,6 @@
 import React, { useState } from 'react'
 import { X, Download, BarChart3 } from 'lucide-react'
-import createPlotlyComponent from 'react-plotly.js/factory'
-import Plotly from 'plotly.js-dist-min'
-
-const Plot = createPlotlyComponent(Plotly)
+import LazyPlot from './LazyPlot'
 
 export default function CanvasPanel({ image, figureJson, title, onClose, style }) {
   const [downloading, setDownloading] = useState(false)
@@ -65,7 +62,7 @@ export default function CanvasPanel({ image, figureJson, title, onClose, style }
           <button
             className="canvas-panel-btn"
             onClick={handleDownload}
-            title="Download image"
+            title={figureJson ? "Export chart as PNG" : "Download image"}
             disabled={downloading}
           >
             <Download size={14} />
@@ -81,7 +78,7 @@ export default function CanvasPanel({ image, figureJson, title, onClose, style }
       </div>
       <div className="canvas-panel-body">
         {figureJson ? (
-          <Plot
+          <LazyPlot
             data={figureJson.data || []}
             layout={plotlyLayout}
             config={{ responsive: true, displayModeBar: true, displaylogo: false }}

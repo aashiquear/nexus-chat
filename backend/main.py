@@ -180,13 +180,20 @@ async def serve_plot_file(filename: str):
     return FileResponse(filepath, media_type="image/png")
 
 
+MAX_PLOTLY_BODY_BYTES = 10 * 1024 * 1024  # 10 MB
+
+
 @app.post("/api/plots/from-json")
 async def plotly_json_to_png(request: Request):
     """Convert Plotly figure JSON to a PNG file and return the filename."""
     try:
         import plotly.io as pio
 
-        body = await request.json()
+        raw_body = await request.body()
+        if len(raw_body) > MAX_PLOTLY_BODY_BYTES:
+            raise HTTPException(413, f"Request body exceeds {MAX_PLOTLY_BODY_BYTES // (1024 * 1024)} MB limit")
+
+        body = json.loads(raw_body)
         figure_json = body.get("figure_json")
         if not figure_json:
             raise HTTPException(400, "Missing figure_json in request body")

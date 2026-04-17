@@ -18,6 +18,10 @@ frontend/dist/
 data/uploads/*
 data/vector_store/*
 data/conversations/*
+data/*.png
+data/*.jpg
+data/*.jpeg
+data/*.svg
 !data/uploads/.gitkeep
 !data/vector_store/.gitkeep
 !data/conversations/.gitkeep

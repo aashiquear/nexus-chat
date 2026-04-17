@@ -226,6 +226,15 @@ export default function App() {
   }, [])
 
   // Canvas divider drag-to-resize
+  const resizeCanvas = useCallback((delta) => {
+    setCanvasWidth((prev) => {
+      const current = prev || window.innerWidth * 0.4
+      const minWidth = 300
+      const maxWidth = window.innerWidth * 0.7
+      return Math.max(minWidth, Math.min(maxWidth, current + delta))
+    })
+  }, [])
+
   const handleDividerMouseDown = useCallback((e) => {
     e.preventDefault()
     isDraggingRef.current = true
@@ -251,6 +260,17 @@ export default function App() {
     document.addEventListener('mousemove', onMouseMove)
     document.addEventListener('mouseup', onMouseUp)
   }, [])
+
+  const handleDividerKeyDown = useCallback((e) => {
+    const step = e.shiftKey ? 50 : 10
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault()
+      resizeCanvas(step)
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault()
+      resizeCanvas(-step)
+    }
+  }, [resizeCanvas])
 
   // Compute conversation statistics from messages and token history
   const conversationStats = useMemo(() => {
@@ -576,7 +596,12 @@ export default function App() {
         <>
           <div
             className="canvas-divider"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize canvas panel"
+            tabIndex={0}
             onMouseDown={handleDividerMouseDown}
+            onKeyDown={handleDividerKeyDown}
           />
           <CanvasPanel
             image={canvasData.image}

@@ -3,10 +3,7 @@ import {
   User, Bot, Wrench, CheckCircle2, ChevronDown, ChevronRight,
   BarChart3, Image as ImageIcon, Eye, Copy, Check as CheckIcon,
 } from 'lucide-react'
-import createPlotlyComponent from 'react-plotly.js/factory'
-import Plotly from 'plotly.js-dist-min'
-
-const Plot = createPlotlyComponent(Plotly)
+import LazyPlot from './LazyPlot'
 
 // Copy-to-clipboard code block wrapper
 function CodeBlock({ code, lang }) {
@@ -575,7 +572,7 @@ export default function ChatMessage({ message, onOpenCanvas }) {
                   <span>{parsed.title || figData.layout?.title?.text || 'Interactive Plot'}</span>
                 </div>
                 <div className="plotly-chart-container">
-                  <Plot
+                  <LazyPlot
                     data={figData.data || []}
                     layout={layout}
                     config={{ responsive: true, displayModeBar: false }}
