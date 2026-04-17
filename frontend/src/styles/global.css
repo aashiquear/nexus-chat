@@ -973,6 +973,28 @@ body {
   border-color: var(--accent);
 }
 
+/* ---- Plotly Chart Container (inline in chat) ---- */
+.plotly-result-card .plotly-chart-container {
+  padding: 8px;
+  min-height: 280px;
+}
+
+.plotly-result-card .plotly-chart-container .js-plotly-plot,
+.plotly-result-card .plotly-chart-container .plot-container {
+  width: 100% !important;
+}
+
+/* ---- Plotly in Canvas Panel ---- */
+.canvas-panel-body .js-plotly-plot,
+.canvas-panel-body .plot-container {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.canvas-panel-body .js-plotly-plot {
+  min-height: 500px;
+}
+
 /* ---- Image Analysis Card ---- */
 .image-analysis-card {
   margin: 10px 0;
@@ -1410,12 +1432,36 @@ body {
   transition: width 0.2s ease;
 }
 
+/* ---- Canvas Resize Divider ---- */
+.canvas-divider {
+  width: 5px;
+  cursor: col-resize;
+  background: var(--border);
+  flex-shrink: 0;
+  transition: background 0.15s;
+  position: relative;
+}
+
+.canvas-divider::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -3px;
+  right: -3px;
+  bottom: 0;
+}
+
+.canvas-divider:hover,
+.canvas-divider:active {
+  background: var(--accent);
+}
+
 /* ---- Right-side Canvas Panel ---- */
 .canvas-panel {
-  width: 420px;
-  max-width: 45vw;
+  width: 45vw;
+  min-width: 300px;
+  max-width: 70vw;
   background: var(--bg-panel);
-  border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;

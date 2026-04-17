@@ -31,6 +31,8 @@ export default function App() {
 
   // Canvas panel state (right-side panel for graphs)
   const [canvasData, setCanvasData] = useState(null)
+  const [canvasWidth, setCanvasWidth] = useState(null) // null = auto-calculate initial
+  const isDraggingRef = useRef(false)
 
   // Upload progress state: { filename, progress (0-100) } or null
   const [uploadProgress, setUploadProgress] = useState(null)
@@ -220,7 +222,55 @@ export default function App() {
   // Open canvas panel for a graph
   const handleOpenCanvas = useCallback((data) => {
     setCanvasData(data)
+    setCanvasWidth(null) // reset to auto-calculate on each new open
   }, [])
+
+  // Canvas divider drag-to-resize
+  const resizeCanvas = useCallback((delta) => {
+    setCanvasWidth((prev) => {
+      const current = prev || window.innerWidth * 0.4
+      const minWidth = 300
+      const maxWidth = window.innerWidth * 0.7
+      return Math.max(minWidth, Math.min(maxWidth, current + delta))
+    })
+  }, [])
+
+  const handleDividerMouseDown = useCallback((e) => {
+    e.preventDefault()
+    isDraggingRef.current = true
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    const onMouseMove = (e) => {
+      if (!isDraggingRef.current) return
+      const newWidth = window.innerWidth - e.clientX
+      const minWidth = 300
+      const maxWidth = window.innerWidth * 0.7
+      setCanvasWidth(Math.max(minWidth, Math.min(maxWidth, newWidth)))
+    }
+
+    const onMouseUp = () => {
+      isDraggingRef.current = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+  }, [])
+
+  const handleDividerKeyDown = useCallback((e) => {
+    const step = e.shiftKey ? 50 : 10
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault()
+      resizeCanvas(step)
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault()
+      resizeCanvas(-step)
+    }
+  }, [resizeCanvas])
 
   // Compute conversation statistics from messages and token history
   const conversationStats = useMemo(() => {
@@ -373,6 +423,13 @@ export default function App() {
                 setCanvasData({
                   image: parsed.plot_image,
                   title: parsed.title || 'Generated Plot',
+                })
+              } else if (parsed && parsed.figure_json) {
+                const figData = typeof parsed.figure_json === 'string'
+                  ? JSON.parse(parsed.figure_json) : parsed.figure_json
+                setCanvasData({
+                  figureJson: figData,
+                  title: parsed.title || figData.layout?.title?.text || 'Interactive Plot',
                 })
               }
             } catch (_e) { /* not JSON */ }
@@ -536,11 +593,24 @@ export default function App() {
 
       {/* Right-side Canvas Panel for graphs */}
       {canvasData && (
-        <CanvasPanel
-          image={canvasData.image}
-          title={canvasData.title}
-          onClose={() => setCanvasData(null)}
-        />
+        <>
+          <div
+            className="canvas-divider"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize canvas panel"
+            tabIndex={0}
+            onMouseDown={handleDividerMouseDown}
+            onKeyDown={handleDividerKeyDown}
+          />
+          <CanvasPanel
+            image={canvasData.image}
+            figureJson={canvasData.figureJson}
+            title={canvasData.title}
+            onClose={() => setCanvasData(null)}
+            style={canvasWidth ? { width: canvasWidth } : undefined}
+          />
+        </>
       )}
     </div>
   )

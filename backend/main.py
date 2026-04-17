@@ -10,7 +10,9 @@ import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, HTTPException
+import uuid
+
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -176,6 +178,38 @@ async def serve_plot_file(filename: str):
     if not filepath.exists():
         raise HTTPException(404, "Plot file not found")
     return FileResponse(filepath, media_type="image/png")
+
+
+MAX_PLOTLY_BODY_BYTES = 10 * 1024 * 1024  # 10 MB
+
+
+@app.post("/api/plots/from-json")
+async def plotly_json_to_png(request: Request):
+    """Convert Plotly figure JSON to a PNG file and return the filename."""
+    try:
+        import plotly.io as pio
+
+        raw_body = await request.body()
+        if len(raw_body) > MAX_PLOTLY_BODY_BYTES:
+            raise HTTPException(413, f"Request body exceeds {MAX_PLOTLY_BODY_BYTES // (1024 * 1024)} MB limit")
+
+        body = json.loads(raw_body)
+        figure_json = body.get("figure_json")
+        if not figure_json:
+            raise HTTPException(400, "Missing figure_json in request body")
+
+        fig = pio.from_json(json.dumps(figure_json) if isinstance(figure_json, dict) else figure_json)
+        filename = f"plotly-{uuid.uuid4().hex[:8]}.png"
+        data_dir = Path("./data")
+        data_dir.mkdir(exist_ok=True)
+        filepath = data_dir / filename
+        fig.write_image(str(filepath), width=1200, height=700, scale=2)
+
+        return JSONResponse({"filename": filename})
+    except ImportError:
+        raise HTTPException(500, "plotly or kaleido not installed")
+    except Exception as e:
+        raise HTTPException(500, f"Failed to render Plotly figure: {e}")
 
 
 # ------ MCP Server Endpoints ------
