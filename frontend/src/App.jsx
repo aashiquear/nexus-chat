@@ -374,6 +374,13 @@ export default function App() {
                   image: parsed.plot_image,
                   title: parsed.title || 'Generated Plot',
                 })
+              } else if (parsed && parsed.figure_json) {
+                const figData = typeof parsed.figure_json === 'string'
+                  ? JSON.parse(parsed.figure_json) : parsed.figure_json
+                setCanvasData({
+                  figureJson: figData,
+                  title: parsed.title || figData.layout?.title?.text || 'Interactive Plot',
+                })
               }
             } catch (_e) { /* not JSON */ }
             break
@@ -538,6 +545,7 @@ export default function App() {
       {canvasData && (
         <CanvasPanel
           image={canvasData.image}
+          figureJson={canvasData.figureJson}
           title={canvasData.title}
           onClose={() => setCanvasData(null)}
         />

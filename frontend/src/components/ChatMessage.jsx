@@ -3,6 +3,10 @@ import {
   User, Bot, Wrench, CheckCircle2, ChevronDown, ChevronRight,
   BarChart3, Image as ImageIcon, Eye, Copy, Check as CheckIcon,
 } from 'lucide-react'
+import createPlotlyComponent from 'react-plotly.js/factory'
+import Plotly from 'plotly.js-dist-min'
+
+const Plot = createPlotlyComponent(Plotly)
 
 // Copy-to-clipboard code block wrapper
 function CodeBlock({ code, lang }) {
@@ -429,7 +433,7 @@ export default function ChatMessage({ message, onOpenCanvas }) {
   const specialResults = toolResults.filter((tr) => {
     try {
       const p = JSON.parse(tr.result)
-      return (p && p.svg && p.svg.includes('<svg')) || (p && p.plot_image) || (p && p.analysis && tr.name === 'image_analyzer')
+      return (p && p.svg && p.svg.includes('<svg')) || (p && p.plot_image) || (p && p.figure_json) || (p && p.analysis && tr.name === 'image_analyzer')
     } catch (_e) { return false }
   })
 
@@ -508,6 +512,53 @@ export default function ChatMessage({ message, onOpenCanvas }) {
                     onClick={() => onOpenCanvas && onOpenCanvas({
                       image: parsed.plot_image,
                       title: parsed.title,
+                    })}
+                    title="Open in canvas panel"
+                  >
+                    <Eye size={13} />
+                    Open
+                  </button>
+                </div>
+              </div>
+            )
+          }
+
+          // Plotly JSON — render interactive chart inline
+          if (parsed.figure_json) {
+            const figData = typeof parsed.figure_json === 'string'
+              ? JSON.parse(parsed.figure_json) : parsed.figure_json
+            const layout = {
+              ...(figData.layout || {}),
+              autosize: true,
+              margin: { l: 50, r: 30, t: 40, b: 40 },
+              paper_bgcolor: 'transparent',
+              plot_bgcolor: 'transparent',
+              font: { color: '#c9d1d9' },
+            }
+            return (
+              <div key={`plotly-${i}`} className="plot-result-card plotly-result-card">
+                <div className="plot-result-header">
+                  <BarChart3 size={14} />
+                  <span>{parsed.title || figData.layout?.title?.text || 'Interactive Plot'}</span>
+                </div>
+                <div className="plotly-chart-container">
+                  <Plot
+                    data={figData.data || []}
+                    layout={layout}
+                    config={{ responsive: true, displayModeBar: false }}
+                    useResizeHandler
+                    style={{ width: '100%', height: '350px' }}
+                  />
+                </div>
+                <div className="plot-result-footer">
+                  <span className="plot-result-meta">
+                    Interactive Plotly chart
+                  </span>
+                  <button
+                    className="plot-result-expand"
+                    onClick={() => onOpenCanvas && onOpenCanvas({
+                      figureJson: figData,
+                      title: parsed.title || figData.layout?.title?.text || 'Interactive Plot',
                     })}
                     title="Open in canvas panel"
                   >

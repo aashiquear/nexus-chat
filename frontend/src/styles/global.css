@@ -973,6 +973,28 @@ body {
   border-color: var(--accent);
 }
 
+/* ---- Plotly Chart Container (inline in chat) ---- */
+.plotly-result-card .plotly-chart-container {
+  padding: 8px;
+  min-height: 280px;
+}
+
+.plotly-result-card .plotly-chart-container .js-plotly-plot,
+.plotly-result-card .plotly-chart-container .plot-container {
+  width: 100% !important;
+}
+
+/* ---- Plotly in Canvas Panel ---- */
+.canvas-panel-body .js-plotly-plot,
+.canvas-panel-body .plot-container {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.canvas-panel-body .js-plotly-plot {
+  min-height: 500px;
+}
+
 /* ---- Image Analysis Card ---- */
 .image-analysis-card {
   margin: 10px 0;
