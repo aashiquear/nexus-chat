@@ -83,16 +83,16 @@ export default function SplashScreen({ onStart }) {
             </g>
 
             {/* NEXUS */}
-            <text className="logo-text" x="340" y="340" textAnchor="middle" fontFamily="'DM Sans', system-ui, -apple-system, sans-serif" fontSize="44" fontWeight="600" letterSpacing="8" fill="#3a675a">NEXUS</text>
+            <text className="logo-text" x="340" y="345" textAnchor="middle" fontFamily="'DM Sans', system-ui, -apple-system, sans-serif" fontSize="58" fontWeight="600" letterSpacing="10" fill="#3a675a">NEXUS</text>
 
             {/* CHAT */}
-            <text className="logo-sub" x="340" y="374" textAnchor="middle" fontFamily="'DM Sans', system-ui, -apple-system, sans-serif" fontSize="16" fontWeight="400" letterSpacing="13" fill="#5a8a7a">CHAT</text>
+            <text className="logo-sub" x="340" y="385" textAnchor="middle" fontFamily="'DM Sans', system-ui, -apple-system, sans-serif" fontSize="22" fontWeight="400" letterSpacing="16" fill="#5a8a7a">CHAT</text>
 
             {/* Divider */}
-            <line className="logo-div" x1="300" y1="390" x2="380" y2="390" stroke="#5a8a7a" strokeWidth="1.5" strokeLinecap="round" opacity="0.3" />
+            <line className="logo-div" x1="290" y1="405" x2="390" y2="405" stroke="#5a8a7a" strokeWidth="1.5" strokeLinecap="round" opacity="0.3" />
 
             {/* Tagline */}
-            <text className="logo-tag" x="340" y="416" textAnchor="middle" fontFamily="'DM Sans', system-ui, -apple-system, sans-serif" fontSize="11" fontWeight="500" letterSpacing="4" fill="#6b9d8c">AGENTIC · RAG · MCP · MULTI-LLM</text>
+            <text className="logo-tag" x="340" y="435" textAnchor="middle" fontFamily="'DM Sans', system-ui, -apple-system, sans-serif" fontSize="15" fontWeight="500" letterSpacing="5" fill="#6b9d8c">AGENTIC · RAG · MCP · MULTI-LLM</text>
           </svg>
         </div>
 

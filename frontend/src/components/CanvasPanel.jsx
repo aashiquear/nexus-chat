@@ -48,7 +48,7 @@ export default function CanvasPanel({ image, figureJson, title, onClose, style }
     autosize: true,
     paper_bgcolor: 'transparent',
     plot_bgcolor: 'transparent',
-    font: { color: '#c9d1d9' },
+    font: { color: '#2c2c2c' },
   } : null
 
   return (
