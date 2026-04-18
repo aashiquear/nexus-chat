@@ -5,6 +5,7 @@ import {
   Database, Server, RefreshCw, ChevronDown, ChevronRight, Image,
   MessageCircle, BarChart3, Eye,
 } from 'lucide-react'
+import NexusLogoIcon from './NexusLogoIcon'
 
 const ICON_MAP = {
   calculator: Calculator,
@@ -125,7 +126,9 @@ export default function Sidebar({
       {isOpen && <div className="sidebar-overlay" onClick={onClose} />}
       <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
-          <div className="sidebar-logo">N</div>
+          <div className="sidebar-logo">
+            <NexusLogoIcon size={28} />
+          </div>
           <span className="sidebar-title">Nexus Chat</span>
         </div>
 
