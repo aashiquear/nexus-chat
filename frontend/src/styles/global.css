@@ -1609,8 +1609,6 @@ body {
   overflow: hidden;
   border-radius: var(--radius-lg);
   isolation: isolate;
-  transform-origin: 50% 50%;
-  animation: splashPop 6s ease-in-out 3s infinite;
 }
 
 .splash-logo-svg {
@@ -1648,23 +1646,49 @@ body {
   100% { transform: translateX(350%); opacity: 0; }
 }
 
-/* Gentle pop synced with each shine pass: rests at rest scale for most
-   of the cycle, then scales up + back down while the shine sweeps. */
-@keyframes splashPop {
-  0%, 2%   { transform: scale(1); }
-  6%       { transform: scale(1.035); }
-  14%      { transform: scale(0.995); }
-  22%      { transform: scale(1.02); }
-  35%      { transform: scale(1); }
-  100%     { transform: scale(1); }
+/* Outer nodes pop in sequence while the shine sweeps across.
+   The bubble pop and the matching tagline word use the same
+   keyframes schedule so they stay in lock-step. */
+@keyframes splashBubblePop {
+  0%, 3%  { transform: scale(1); }
+  5%      { transform: scale(1.22); }
+  9%      { transform: scale(1); }
+  100%    { transform: scale(1); }
 }
 
-/* Re-use the user-provided logo animation keyframes */
-.splash-logo-svg .outer-node { opacity: 0; animation: splashNodeIn 0.5s ease forwards; }
-.splash-logo-svg .outer-node:nth-child(1) { animation-delay: 0.1s; }
-.splash-logo-svg .outer-node:nth-child(2) { animation-delay: 0.25s; }
-.splash-logo-svg .outer-node:nth-child(3) { animation-delay: 0.4s; }
-.splash-logo-svg .outer-node:nth-child(4) { animation-delay: 0.55s; }
+@keyframes splashWordBold {
+  0%, 3%  { font-weight: 500; fill: #6b9d8c; }
+  5%      { font-weight: 800; fill: #3a675a; }
+  9%      { font-weight: 500; fill: #6b9d8c; }
+  100%    { font-weight: 500; fill: #6b9d8c; }
+}
+
+/* Re-use the user-provided logo animation keyframes.
+   Each outer node runs two animations:
+     1. splashNodeIn  - the one-shot entry pop-in
+     2. splashBubblePop - a looping pop synced with the shine sweep,
+                           staggered so the four bubbles pop in sequence. */
+.splash-logo-svg .outer-node {
+  opacity: 0;
+  animation-name: splashNodeIn, splashBubblePop;
+  animation-duration: 0.5s, 6s;
+  animation-timing-function: ease, ease-in-out;
+  animation-fill-mode: forwards, none;
+  animation-iteration-count: 1, infinite;
+}
+.splash-logo-svg .outer-node:nth-child(1) { animation-delay: 0.10s, 3.2s; }
+.splash-logo-svg .outer-node:nth-child(2) { animation-delay: 0.25s, 3.8s; }
+.splash-logo-svg .outer-node:nth-child(3) { animation-delay: 0.40s, 4.4s; }
+.splash-logo-svg .outer-node:nth-child(4) { animation-delay: 0.55s, 5.0s; }
+
+/* Tagline words - each word bolds in sync with its paired bubble pop */
+.splash-logo-svg .tag-word {
+  animation: splashWordBold 6s ease-in-out infinite;
+}
+.splash-logo-svg .tag-word-1 { animation-delay: 3.2s; }
+.splash-logo-svg .tag-word-2 { animation-delay: 3.8s; }
+.splash-logo-svg .tag-word-3 { animation-delay: 4.4s; }
+.splash-logo-svg .tag-word-4 { animation-delay: 5.0s; }
 
 @keyframes splashNodeIn {
   0%   { opacity: 0; transform: scale(0.3); }

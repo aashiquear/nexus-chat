@@ -91,8 +91,16 @@ export default function SplashScreen({ onStart }) {
             {/* Divider */}
             <line className="logo-div" x1="290" y1="405" x2="390" y2="405" stroke="#5a8a7a" strokeWidth="1.5" strokeLinecap="round" opacity="0.3" />
 
-            {/* Tagline */}
-            <text className="logo-tag" x="340" y="435" textAnchor="middle" fontFamily="'DM Sans', system-ui, -apple-system, sans-serif" fontSize="15" fontWeight="500" letterSpacing="5" fill="#6b9d8c">AGENTIC · RAG · MCP · MULTI-LLM</text>
+            {/* Tagline - each word bolds in sync with its paired bubble pop */}
+            <text className="logo-tag" x="340" y="435" textAnchor="middle" fontFamily="'DM Sans', system-ui, -apple-system, sans-serif" fontSize="15" fontWeight="500" letterSpacing="5" fill="#6b9d8c">
+              <tspan className="tag-word tag-word-1">AGENTIC</tspan>
+              <tspan> · </tspan>
+              <tspan className="tag-word tag-word-2">RAG</tspan>
+              <tspan> · </tspan>
+              <tspan className="tag-word tag-word-3">MCP</tspan>
+              <tspan> · </tspan>
+              <tspan className="tag-word tag-word-4">MULTI-LLM</tspan>
+            </text>
           </svg>
         </div>
 
