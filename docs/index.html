@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a1814" />
+  <meta name="description" content="Nexus Chat — the nexus of thought. Four powerful dots (Agentic Workflow, RAG, MCP, Multi-LLM) connect to one: the human mind. An open-source, modular chatbot that thinks with you." />
+  <meta property="og:title" content="Nexus Chat — The Nexus of Thought" />
+  <meta property="og:description" content="Four dots. One mind. A modular, agentic chatbot that connects your thoughts intelligently." />
+  <meta property="og:type" content="website" />
+  <title>Nexus Chat — The Nexus of Thought</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <!-- Ambient glow / starfield layer -->
+  <div class="ambient">
+    <div class="ambient-glow ambient-glow-1"></div>
+    <div class="ambient-glow ambient-glow-2"></div>
+    <div class="ambient-glow ambient-glow-3"></div>
+    <div class="ambient-grid"></div>
+  </div>
+
+  <!-- Navigation -->
+  <nav class="nav">
+    <a class="nav-brand" href="#top">
+      <svg class="nav-logo" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <circle cx="100" cy="100" r="28" fill="#5a8a7a" />
+        <circle cx="100" cy="100" r="12" fill="#0a1814" />
+        <circle cx="40" cy="50" r="14" fill="#6b9d8c" />
+        <circle cx="160" cy="50" r="14" fill="#6b9d8c" />
+        <circle cx="40" cy="150" r="11" fill="#89b5a6" />
+        <circle cx="160" cy="150" r="11" fill="#89b5a6" />
+        <line x1="40" y1="50" x2="100" y2="100" stroke="#5a8a7a" stroke-width="2" />
+        <line x1="160" y1="50" x2="100" y2="100" stroke="#5a8a7a" stroke-width="2" />
+        <line x1="40" y1="150" x2="100" y2="100" stroke="#5a8a7a" stroke-width="2" />
+        <line x1="160" y1="150" x2="100" y2="100" stroke="#5a8a7a" stroke-width="2" />
+      </svg>
+      <span class="nav-title">NEXUS<span class="nav-title-thin">CHAT</span></span>
+    </a>
+    <div class="nav-links">
+      <a href="#dots">The Four Dots</a>
+      <a href="#why">Why Nexus</a>
+      <a href="#live">See It Live</a>
+      <a class="nav-cta" href="https://github.com/aashiquear/nexus-chat" target="_blank" rel="noopener">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.88-1.54-3.88-1.54-.52-1.33-1.28-1.68-1.28-1.68-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.56-.29-5.26-1.28-5.26-5.71 0-1.26.45-2.3 1.18-3.11-.12-.29-.51-1.46.11-3.04 0 0 .97-.31 3.17 1.18a10.96 10.96 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.62 1.58.23 2.75.11 3.04.74.81 1.18 1.85 1.18 3.11 0 4.44-2.7 5.41-5.27 5.7.41.36.78 1.06.78 2.14v3.17c0 .31.21.68.8.56 4.56-1.52 7.85-5.83 7.85-10.91C23.5 5.73 18.27.5 12 .5z"/></svg>
+        GitHub
+      </a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <header class="hero" id="top">
+    <div class="hero-inner">
+      <div class="hero-copy">
+        <div class="hero-badge">
+          <span class="hero-badge-dot"></span>
+          Open-source · MIT licensed · Self-hosted
+        </div>
+        <h1 class="hero-title">
+          <span class="gradient-text">Four Dots.</span>
+          <span class="gradient-text">One Mind.</span>
+          <span class="hero-title-sub">The nexus of thought.</span>
+        </h1>
+        <p class="hero-lead">
+          Nexus Chat connects four powerful capabilities &mdash; <b>Agentic Workflows</b>,
+          <b>RAG</b>, <b>MCP Servers</b>, and <b>Multi-LLM</b> &mdash; into a single,
+          luminous point: <b>you</b>. It's the chatbot that thinks <em>with</em> you,
+          not <em>for</em> you.
+        </p>
+        <div class="hero-ctas">
+          <a class="btn btn-primary" href="#dots">
+            <span>Discover the Four Dots</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+          </a>
+          <a class="btn btn-ghost" href="https://github.com/aashiquear/nexus-chat" target="_blank" rel="noopener">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.88-1.54-3.88-1.54-.52-1.33-1.28-1.68-1.28-1.68-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.56-.29-5.26-1.28-5.26-5.71 0-1.26.45-2.3 1.18-3.11-.12-.29-.51-1.46.11-3.04 0 0 .97-.31 3.17 1.18a10.96 10.96 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.62 1.58.23 2.75.11 3.04.74.81 1.18 1.85 1.18 3.11 0 4.44-2.7 5.41-5.27 5.7.41.36.78 1.06.78 2.14v3.17c0 .31.21.68.8.56 4.56-1.52 7.85-5.83 7.85-10.91C23.5 5.73 18.27.5 12 .5z"/></svg>
+            <span>Star on GitHub</span>
+          </a>
+        </div>
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <div class="hero-stat-num">4</div>
+            <div class="hero-stat-label">Dots connected</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-num">&infin;</div>
+            <div class="hero-stat-label">Tools pluggable</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-num">1</div>
+            <div class="hero-stat-label">Command to deploy</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Animated hero logo -->
+      <div class="hero-logo" aria-label="Nexus Chat animated logo">
+        <div class="hero-logo-halo"></div>
+        <div class="hero-logo-shine">
+          <svg class="marketing-logo-svg" viewBox="0 0 680 490" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <radialGradient id="bubbleGlow" cx="50%" cy="50%" r="60%">
+                <stop offset="0%" stop-color="#6eb89d" stop-opacity="0.9" />
+                <stop offset="100%" stop-color="#1e3a33" stop-opacity="0.6" />
+              </radialGradient>
+              <linearGradient id="nodeShine" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#9fd9c4" />
+                <stop offset="60%" stop-color="#5a8a7a" />
+                <stop offset="100%" stop-color="#2d5349" />
+              </linearGradient>
+              <linearGradient id="centerShine" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#c6f0dd" />
+                <stop offset="50%" stop-color="#6eb89d" />
+                <stop offset="100%" stop-color="#2d5349" />
+              </linearGradient>
+              <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="4" result="blur"/>
+                <feMerge>
+                  <feMergeNode in="blur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
+
+            <g transform="translate(340, 155)">
+              <!-- Thought bubble (the human mind) -->
+              <path class="bubble-bg" d="M-100,-95 L80,-95 Q100,-95 100,-75 L100,55 Q100,75 80,75 L-15,75 L-48,112 L-36,75 L-80,75 Q-100,75 -100,55 L-100,-75 Q-100,-95 -80,-95 Z" fill="url(#bubbleGlow)" />
+
+              <!-- Connection lines -->
+              <g filter="url(#softGlow)">
+                <line class="conn-line" x1="-60" y1="-50" x2="0" y2="10" stroke="#89b5a6" stroke-width="2.8" stroke-linecap="round" />
+                <line class="conn-line" x1="60" y1="-50" x2="0" y2="10" stroke="#89b5a6" stroke-width="2.8" stroke-linecap="round" />
+                <line class="conn-line" x1="-50" y1="50" x2="0" y2="10" stroke="#89b5a6" stroke-width="2.8" stroke-linecap="round" />
+                <line class="conn-line" x1="50" y1="50" x2="0" y2="10" stroke="#89b5a6" stroke-width="2.8" stroke-linecap="round" />
+                <line class="conn-line" x1="-60" y1="-50" x2="60" y2="-50" stroke="#96c0b2" stroke-width="2.2" stroke-linecap="round" />
+                <line class="conn-line" x1="-60" y1="-50" x2="-50" y2="50" stroke="#96c0b2" stroke-width="2.2" stroke-linecap="round" />
+                <line class="conn-line" x1="60" y1="-50" x2="50" y2="50" stroke="#96c0b2" stroke-width="2.2" stroke-linecap="round" />
+                <line class="conn-line" x1="-50" y1="50" x2="50" y2="50" stroke="#96c0b2" stroke-width="2.2" stroke-linecap="round" />
+              </g>
+
+              <!-- Outer four nodes (the four dots) -->
+              <g>
+                <g class="outer-node outer-node-1" style="transform-origin:-60px -50px">
+                  <circle cx="-60" cy="-50" r="20" fill="url(#nodeShine)" />
+                  <circle cx="-60" cy="-50" r="9" fill="#eef3f1" />
+                  <circle cx="-60" cy="-50" r="4.5" fill="#5a8a7a" opacity="0.4" />
+                </g>
+                <g class="outer-node outer-node-2" style="transform-origin:60px -50px">
+                  <circle cx="60" cy="-50" r="20" fill="url(#nodeShine)" />
+                  <circle cx="60" cy="-50" r="9" fill="#eef3f1" />
+                  <circle cx="60" cy="-50" r="4.5" fill="#5a8a7a" opacity="0.4" />
+                </g>
+                <g class="outer-node outer-node-3" style="transform-origin:-50px 50px">
+                  <circle cx="-50" cy="50" r="15" fill="url(#nodeShine)" />
+                </g>
+                <g class="outer-node outer-node-4" style="transform-origin:50px 50px">
+                  <circle cx="50" cy="50" r="15" fill="url(#nodeShine)" />
+                </g>
+              </g>
+
+              <!-- Center node (human mind) -->
+              <g class="center-node" style="transform-origin:0px 10px" filter="url(#softGlow)">
+                <circle cx="0" cy="10" r="26" fill="url(#centerShine)" />
+                <circle cx="0" cy="10" r="12" fill="#eef3f1" />
+                <circle cx="0" cy="10" r="6" fill="#5a8a7a" opacity="0.4" />
+              </g>
+
+              <!-- Floating labels positioned near each node -->
+              <g class="node-label node-label-1" text-anchor="end">
+                <text x="-85" y="-46" font-family="'DM Sans', sans-serif" font-size="12" fill="#9fd9c4" letter-spacing="2" font-weight="600">AGENTIC</text>
+              </g>
+              <g class="node-label node-label-2" text-anchor="start">
+                <text x="85" y="-46" font-family="'DM Sans', sans-serif" font-size="12" fill="#9fd9c4" letter-spacing="2" font-weight="600">RAG</text>
+              </g>
+              <g class="node-label node-label-3" text-anchor="end">
+                <text x="-70" y="72" font-family="'DM Sans', sans-serif" font-size="12" fill="#9fd9c4" letter-spacing="2" font-weight="600">MCP</text>
+              </g>
+              <g class="node-label node-label-4" text-anchor="start">
+                <text x="70" y="72" font-family="'DM Sans', sans-serif" font-size="12" fill="#9fd9c4" letter-spacing="2" font-weight="600">MULTI-LLM</text>
+              </g>
+            </g>
+
+            <text class="logo-text" x="340" y="345" text-anchor="middle" font-family="'DM Sans', sans-serif" font-size="58" font-weight="700" letter-spacing="10" fill="#e8f0ed">NEXUS</text>
+            <text class="logo-sub" x="340" y="385" text-anchor="middle" font-family="'DM Sans', sans-serif" font-size="22" font-weight="400" letter-spacing="16" fill="#6eb89d">CHAT</text>
+            <line class="logo-div" x1="290" y1="405" x2="390" y2="405" stroke="#6eb89d" stroke-width="1.5" stroke-linecap="round" opacity="0.4" />
+            <text class="logo-tag" x="340" y="435" text-anchor="middle" font-family="'DM Sans', sans-serif" font-size="15" font-weight="500" letter-spacing="5" fill="#89b5a6">
+              <tspan class="tag-word tag-word-1">AGENTIC</tspan>
+              <tspan> &middot; </tspan>
+              <tspan class="tag-word tag-word-2">RAG</tspan>
+              <tspan> &middot; </tspan>
+              <tspan class="tag-word tag-word-3">MCP</tspan>
+              <tspan> &middot; </tspan>
+              <tspan class="tag-word tag-word-4">MULTI-LLM</tspan>
+            </text>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scroll hint -->
+    <div class="scroll-hint" aria-hidden="true">
+      <span>Scroll</span>
+      <div class="scroll-hint-line"></div>
+    </div>
+  </header>
+
+  <!-- THE FOUR DOTS -->
+  <section class="section" id="dots">
+    <div class="section-header reveal">
+      <div class="eyebrow">THE FOUR DOTS</div>
+      <h2 class="section-title">One platform. <span class="gradient-text">Four superpowers.</span></h2>
+      <p class="section-lead">
+        Each dot is a capability. Together, they form a nexus &mdash; and at the center
+        is the single dot that matters most: <b>your thought</b>.
+      </p>
+    </div>
+
+    <div class="dots-grid">
+      <article class="dot-card reveal" data-dot="1">
+        <div class="dot-card-glow"></div>
+        <div class="dot-card-icon">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="4"/><circle cx="10" cy="10" r="3"/><circle cx="38" cy="10" r="3"/><circle cx="10" cy="38" r="3"/><circle cx="38" cy="38" r="3"/><path d="M13 12l8 10M35 12l-8 10M13 36l8-10M35 36l-8-10"/></svg>
+        </div>
+        <div class="dot-card-num">01</div>
+        <h3>Agentic Workflow</h3>
+        <p>Give it a goal. Watch it plan, pick tools, take action, and come back with the answer. Calculators, code, search, your custom tools &mdash; all orchestrated autonomously.</p>
+        <ul class="dot-card-list">
+          <li>Tool-choosing intelligence</li>
+          <li>Plug-in any custom action</li>
+          <li>Transparent reasoning trail</li>
+        </ul>
+      </article>
+
+      <article class="dot-card reveal" data-dot="2">
+        <div class="dot-card-glow"></div>
+        <div class="dot-card-icon">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="10" width="32" height="6" rx="2"/><rect x="8" y="21" width="32" height="6" rx="2"/><rect x="8" y="32" width="32" height="6" rx="2"/><circle cx="14" cy="13" r="1" fill="currentColor"/><circle cx="14" cy="24" r="1" fill="currentColor"/><circle cx="14" cy="35" r="1" fill="currentColor"/></svg>
+        </div>
+        <div class="dot-card-num">02</div>
+        <h3>RAG System</h3>
+        <p>Drop in your docs, slides, PDFs &mdash; Nexus reads them, remembers them, and answers from them. Your data becomes your copilot's long-term memory.</p>
+        <ul class="dot-card-list">
+          <li>Drag-and-drop knowledge</li>
+          <li>Context-aware retrieval</li>
+          <li>Private, local vector storage</li>
+        </ul>
+      </article>
+
+      <article class="dot-card reveal" data-dot="3">
+        <div class="dot-card-glow"></div>
+        <div class="dot-card-icon">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="8" width="36" height="12" rx="2"/><rect x="6" y="28" width="36" height="12" rx="2"/><circle cx="12" cy="14" r="1.5" fill="currentColor"/><circle cx="12" cy="34" r="1.5" fill="currentColor"/><path d="M18 14h18M18 34h18"/></svg>
+        </div>
+        <div class="dot-card-num">03</div>
+        <h3>MCP Server</h3>
+        <p>Connect external services &mdash; databases, APIs, enterprise systems &mdash; via the open Model Context Protocol. Bring the outside world into the conversation.</p>
+        <ul class="dot-card-list">
+          <li>Open standard, any provider</li>
+          <li>Toggle servers per chat</li>
+          <li>Composable, not locked-in</li>
+        </ul>
+      </article>
+
+      <article class="dot-card reveal" data-dot="4">
+        <div class="dot-card-glow"></div>
+        <div class="dot-card-icon">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"/><circle cx="36" cy="12" r="6"/><circle cx="24" cy="36" r="6"/><path d="M15 17l7 13M33 17l-7 13M18 12h12"/></svg>
+        </div>
+        <div class="dot-card-num">04</div>
+        <h3>Multi-LLM</h3>
+        <p>Claude, GPT, Llama, Mistral &mdash; switch models in a click. Use the best brain for the task, or keep everything local with Ollama. Zero vendor lock-in.</p>
+        <ul class="dot-card-list">
+          <li>Anthropic, OpenAI, Ollama</li>
+          <li>Swap mid-conversation</li>
+          <li>Cloud or fully offline</li>
+        </ul>
+      </article>
+    </div>
+
+    <!-- The fifth (center) dot -->
+    <div class="center-dot reveal">
+      <div class="center-dot-glow"></div>
+      <div class="center-dot-inner">
+        <div class="center-dot-eyebrow">THE FIFTH DOT</div>
+        <h3 class="center-dot-title">The one that matters: <span class="gradient-text">the human mind</span>.</h3>
+        <p>Every dot connects to a single center &mdash; you. Nexus doesn't replace thinking; it amplifies it. Four streams of capability, converging on one stream of thought.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHY NEXUS -->
+  <section class="section section-alt" id="why">
+    <div class="section-header reveal">
+      <div class="eyebrow">WHY NEXUS</div>
+      <h2 class="section-title">Built for <span class="gradient-text">builders who think</span>.</h2>
+      <p class="section-lead">Polished where it counts. Open where it matters.</p>
+    </div>
+
+    <div class="why-grid">
+      <div class="why-card reveal">
+        <div class="why-icon">&#9889;</div>
+        <h4>One command to run</h4>
+        <p><code>docker compose up</code>. That's it. You're chatting in 60 seconds.</p>
+      </div>
+      <div class="why-card reveal">
+        <div class="why-icon">&#128275;</div>
+        <h4>Yours to keep</h4>
+        <p>MIT licensed. Self-hosted. Your keys, your data, your rules.</p>
+      </div>
+      <div class="why-card reveal">
+        <div class="why-icon">&#129504;</div>
+        <h4>Bring any brain</h4>
+        <p>Claude. GPT. Local models. Pick per conversation &mdash; or per message.</p>
+      </div>
+      <div class="why-card reveal">
+        <div class="why-icon">&#128268;</div>
+        <h4>Plug, don't fork</h4>
+        <p>New tools in three steps. New MCP servers in minutes. No monolith.</p>
+      </div>
+      <div class="why-card reveal">
+        <div class="why-icon">&#128193;</div>
+        <h4>Knows your stuff</h4>
+        <p>Upload docs &mdash; get answers grounded in them. Real RAG, not hand-wavy.</p>
+      </div>
+      <div class="why-card reveal">
+        <div class="why-icon">&#127752;</div>
+        <h4>Streaming, always</h4>
+        <p>Real-time WebSocket streaming. Tokens appear as fast as they're thought.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- LIVE PREVIEW -->
+  <section class="section" id="live">
+    <div class="section-header reveal">
+      <div class="eyebrow">SEE IT LIVE</div>
+      <h2 class="section-title">A chat that <span class="gradient-text">gets things done</span>.</h2>
+      <p class="section-lead">Ask a question. Watch Nexus reach for the right tool, consult your docs, and stream the answer back.</p>
+    </div>
+
+    <div class="preview-wrap reveal">
+      <div class="preview-chrome">
+        <div class="preview-dots">
+          <span></span><span></span><span></span>
+        </div>
+        <div class="preview-title">nexus &mdash; chat</div>
+        <div class="preview-badge">Claude Sonnet 4</div>
+      </div>
+      <div class="preview-body">
+        <div class="preview-msg preview-msg-user">
+          <div class="preview-avatar">you</div>
+          <div class="preview-bubble">Summarize my Q3 report and plot revenue vs forecast.</div>
+        </div>
+        <div class="preview-msg preview-msg-ai">
+          <div class="preview-avatar preview-avatar-ai">N</div>
+          <div class="preview-bubble">
+            <div class="preview-tool">
+              <span class="preview-tool-dot"></span>
+              <span><b>RAG</b> &middot; retrieving <code>q3_report.pdf</code></span>
+            </div>
+            <div class="preview-tool">
+              <span class="preview-tool-dot"></span>
+              <span><b>Tool</b> &middot; running <code>plot_revenue()</code></span>
+            </div>
+            <div class="preview-tool">
+              <span class="preview-tool-dot"></span>
+              <span><b>MCP</b> &middot; <code>finance_db.query()</code></span>
+            </div>
+            <div class="preview-stream">
+              Revenue closed Q3 at <b>$4.2M</b>, outperforming forecast by <b>+8.4%</b>. Top driver: enterprise contracts&hellip;<span class="cursor-blink">&#9612;</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta-section">
+    <div class="cta-inner reveal">
+      <h2>Ready to <span class="gradient-text">connect the dots?</span></h2>
+      <p>Clone it. Run it. Extend it. Nexus is open, free, and yours.</p>
+      <div class="cta-buttons">
+        <a class="btn btn-primary btn-lg" href="https://github.com/aashiquear/nexus-chat" target="_blank" rel="noopener">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.88-1.54-3.88-1.54-.52-1.33-1.28-1.68-1.28-1.68-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.56-.29-5.26-1.28-5.26-5.71 0-1.26.45-2.3 1.18-3.11-.12-.29-.51-1.46.11-3.04 0 0 .97-.31 3.17 1.18a10.96 10.96 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.62 1.58.23 2.75.11 3.04.74.81 1.18 1.85 1.18 3.11 0 4.44-2.7 5.41-5.27 5.7.41.36.78 1.06.78 2.14v3.17c0 .31.21.68.8.56 4.56-1.52 7.85-5.83 7.85-10.91C23.5 5.73 18.27.5 12 .5z"/></svg>
+          <span>Clone on GitHub</span>
+        </a>
+        <a class="btn btn-ghost btn-lg" href="https://github.com/aashiquear/nexus-chat/blob/main/README.md" target="_blank" rel="noopener">
+          <span>Read the technical docs</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>
+        </a>
+      </div>
+      <div class="cta-command">
+        <code>
+          <span class="cta-prompt">$</span>
+          git clone https://github.com/aashiquear/nexus-chat &amp;&amp; cd nexus-chat &amp;&amp; docker compose up
+        </code>
+        <button class="cta-copy" type="button" aria-label="Copy command" data-copy="git clone https://github.com/aashiquear/nexus-chat && cd nexus-chat && docker compose up">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <span>Copy</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span class="nav-title">NEXUS<span class="nav-title-thin">CHAT</span></span>
+        <p>The nexus of thought. Open-source, MIT licensed.</p>
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/aashiquear/nexus-chat" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/aashiquear/nexus-chat/blob/main/README.md" target="_blank" rel="noopener">Technical README</a>
+        <a href="https://github.com/aashiquear/nexus-chat/blob/main/LICENSE" target="_blank" rel="noopener">License</a>
+        <a href="https://github.com/aashiquear/nexus-chat/issues" target="_blank" rel="noopener">Issues</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>Made for builders who think. &copy; <span id="year">2026</span> Nexus Chat.</p>
+    </div>
+  </footer>
+
+  <script src="assets/main.js" defer></script>
+</body>
+</html>
