@@ -88,6 +88,7 @@ body {
 .app-layout {
   display: flex;
   height: 100vh;
+  height: 100dvh; /* dynamic viewport - avoids mobile browser URL bar clipping */
   overflow: hidden;
 }
 
@@ -113,14 +114,18 @@ body {
 .sidebar-logo {
   width: 28px;
   height: 28px;
-  background: var(--accent);
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-inverse);
-  font-weight: 600;
-  font-size: 13px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.sidebar-logo svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .sidebar-title {
@@ -1457,11 +1462,20 @@ body {
 }
 
 /* ---- Right-side Canvas Panel ---- */
+/* Slightly darker than the chat background so the panel is visually
+   distinct without being eye-straining. Keeps the warm subtle tone. */
 .canvas-panel {
+  --canvas-bg: #e3e0d7;
+  --canvas-bg-inner: #dcd9cf;
+  --canvas-border: rgba(0, 0, 0, 0.08);
+  --canvas-text: var(--text-primary);
+  --canvas-text-dim: var(--text-secondary);
+
   width: 45vw;
   min-width: 300px;
   max-width: 70vw;
-  background: var(--bg-panel);
+  background: var(--canvas-bg);
+  color: var(--canvas-text);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -1479,7 +1493,7 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--border-light);
+  border-bottom: 1px solid var(--canvas-border);
   flex-shrink: 0;
 }
 
@@ -1489,7 +1503,7 @@ body {
   gap: 8px;
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--canvas-text);
 }
 
 .canvas-panel-actions {
@@ -1504,7 +1518,7 @@ body {
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--canvas-text-dim);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1513,12 +1527,12 @@ body {
 }
 
 .canvas-panel-btn:hover {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--canvas-text);
 }
 
 .canvas-panel-close:hover {
-  background: rgba(184, 84, 80, 0.1);
+  background: rgba(184, 84, 80, 0.12);
   color: var(--error);
 }
 
@@ -1529,23 +1543,254 @@ body {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  background: var(--bg-primary);
+  background: var(--canvas-bg-inner);
 }
 
 .canvas-panel-image {
   max-width: 100%;
   height: auto;
   border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 .canvas-panel-footer {
   padding: 8px 16px;
   font-size: 11px;
-  color: var(--text-tertiary);
-  border-top: 1px solid var(--border-light);
-  background: var(--bg-panel-hover);
+  color: var(--canvas-text-dim);
+  border-top: 1px solid var(--canvas-border);
+  background: rgba(0, 0, 0, 0.03);
   flex-shrink: 0;
+}
+
+/* ---- Splash / Title Screen ---- */
+.splash-screen {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-primary);
+  background-image:
+    radial-gradient(circle at 20% 10%, rgba(90, 138, 122, 0.08), transparent 50%),
+    radial-gradient(circle at 80% 90%, rgba(107, 157, 140, 0.08), transparent 50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: splashFadeIn 0.3s ease;
+}
+
+.splash-screen.closing {
+  animation: splashFadeOut 0.4s ease forwards;
+}
+
+@keyframes splashFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes splashFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; visibility: hidden; }
+}
+
+.splash-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  max-width: 680px;
+  width: 100%;
+}
+
+.splash-logo-shine {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  isolation: isolate;
+}
+
+.splash-logo-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Periodic shine sweep across the logo (starts after initial animation finishes) */
+.splash-logo-shine::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -40%;
+  width: 40%;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.0) 35%,
+    rgba(255, 255, 255, 0.55) 50%,
+    rgba(255, 255, 255, 0.0) 65%,
+    transparent 100%
+  );
+  pointer-events: none;
+  animation: splashShine 6s ease-in-out 3s infinite;
+  mix-blend-mode: overlay;
+}
+
+@keyframes splashShine {
+  0%   { transform: translateX(0); opacity: 0; }
+  5%   { opacity: 1; }
+  40%  { transform: translateX(350%); opacity: 1; }
+  45%  { opacity: 0; }
+  100% { transform: translateX(350%); opacity: 0; }
+}
+
+/* Outer nodes pop in sequence while the shine sweeps across.
+   The bubble pop and the matching tagline word use the same
+   keyframes schedule so they stay in lock-step. */
+@keyframes splashBubblePop {
+  0%, 3%  { transform: scale(1); }
+  5%      { transform: scale(1.22); }
+  9%      { transform: scale(1); }
+  100%    { transform: scale(1); }
+}
+
+@keyframes splashWordBold {
+  0%, 3%  { font-weight: 500; fill: #6b9d8c; }
+  5%      { font-weight: 800; fill: #3a675a; }
+  9%      { font-weight: 500; fill: #6b9d8c; }
+  100%    { font-weight: 500; fill: #6b9d8c; }
+}
+
+/* Re-use the user-provided logo animation keyframes.
+   Each outer node runs two animations:
+     1. splashNodeIn  - the one-shot entry pop-in
+     2. splashBubblePop - a looping pop synced with the shine sweep,
+                           staggered so the four bubbles pop in sequence. */
+.splash-logo-svg .outer-node {
+  opacity: 0;
+  animation-name: splashNodeIn, splashBubblePop;
+  animation-duration: 0.5s, 6s;
+  animation-timing-function: ease, ease-in-out;
+  animation-fill-mode: forwards, none;
+  animation-iteration-count: 1, infinite;
+}
+.splash-logo-svg .outer-node:nth-child(1) { animation-delay: 0.10s, 3.2s; }
+.splash-logo-svg .outer-node:nth-child(2) { animation-delay: 0.25s, 3.8s; }
+.splash-logo-svg .outer-node:nth-child(3) { animation-delay: 0.40s, 4.4s; }
+.splash-logo-svg .outer-node:nth-child(4) { animation-delay: 0.55s, 5.0s; }
+
+/* Tagline words - each word bolds in sync with its paired bubble pop */
+.splash-logo-svg .tag-word {
+  animation: splashWordBold 6s ease-in-out infinite;
+}
+.splash-logo-svg .tag-word-1 { animation-delay: 3.2s; }
+.splash-logo-svg .tag-word-2 { animation-delay: 3.8s; }
+.splash-logo-svg .tag-word-3 { animation-delay: 4.4s; }
+.splash-logo-svg .tag-word-4 { animation-delay: 5.0s; }
+
+@keyframes splashNodeIn {
+  0%   { opacity: 0; transform: scale(0.3); }
+  60%  { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.splash-logo-svg .conn-line {
+  stroke-dasharray: 200;
+  stroke-dashoffset: 200;
+  animation: splashDrawLine 0.4s ease forwards;
+}
+.splash-logo-svg .conn-line:nth-child(1) { animation-delay: 0.80s; }
+.splash-logo-svg .conn-line:nth-child(2) { animation-delay: 0.90s; }
+.splash-logo-svg .conn-line:nth-child(3) { animation-delay: 1.00s; }
+.splash-logo-svg .conn-line:nth-child(4) { animation-delay: 1.10s; }
+.splash-logo-svg .conn-line:nth-child(5) { animation-delay: 0.85s; }
+.splash-logo-svg .conn-line:nth-child(6) { animation-delay: 0.95s; }
+.splash-logo-svg .conn-line:nth-child(7) { animation-delay: 1.05s; }
+.splash-logo-svg .conn-line:nth-child(8) { animation-delay: 1.15s; }
+
+@keyframes splashDrawLine {
+  to { stroke-dashoffset: 0; }
+}
+
+.splash-logo-svg .center-node {
+  opacity: 0;
+  animation: splashCenterIn 0.6s ease forwards;
+  animation-delay: 1.3s;
+}
+
+@keyframes splashCenterIn {
+  0%   { opacity: 0; transform: scale(0); }
+  50%  { opacity: 1; transform: scale(1.12); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.splash-logo-svg .bubble-bg {
+  opacity: 0;
+  animation: splashBubbleFade 0.4s ease forwards;
+}
+
+@keyframes splashBubbleFade {
+  to { opacity: 0.18; }
+}
+
+.splash-logo-svg .logo-text { opacity: 0; animation: splashTextIn 0.5s ease forwards; animation-delay: 1.6s; }
+.splash-logo-svg .logo-sub  { opacity: 0; animation: splashTextIn 0.5s ease forwards; animation-delay: 1.8s; }
+.splash-logo-svg .logo-div  { opacity: 0; animation: splashTextIn 0.4s ease forwards; animation-delay: 1.9s; }
+.splash-logo-svg .logo-tag  { opacity: 0; animation: splashTextIn 0.5s ease forwards; animation-delay: 2.0s; }
+
+@keyframes splashTextIn {
+  0%   { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.splash-logo-svg .crescent {
+  opacity: 0;
+  animation: splashCrescIn 0.3s ease forwards;
+  animation-delay: 1.5s;
+}
+
+@keyframes splashCrescIn {
+  to { opacity: 0.5; }
+}
+
+.splash-start-btn {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 28px;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  color: var(--text-inverse);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  transform: translateY(6px);
+  animation: splashTextIn 0.5s ease forwards;
+  animation-delay: 2.2s;
+  transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.splash-start-btn:hover {
+  background: var(--accent-light);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
+
+.splash-start-btn:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+  .splash-logo-shine { max-width: 100%; }
+  .splash-start-btn { padding: 11px 24px; font-size: 13.5px; }
 }
 
 /* ---- Responsive ---- */
@@ -1573,6 +1818,19 @@ body {
     inset: 0;
     background: rgba(0, 0, 0, 0.2);
     z-index: 99;
+  }
+
+  /* Pin the header so it stays visible at all times on mobile, even
+     when the mobile browser URL bar hides/shows or the chat scrolls. */
+  .main-content {
+    position: relative;
+  }
+
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--bg-panel);
   }
 
   .canvas-panel {

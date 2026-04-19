@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar'
 import ChatMessage, { TypingIndicator } from './components/ChatMessage'
 import ChatInput from './components/ChatInput'
 import CanvasPanel from './components/CanvasPanel'
+import SplashScreen from './components/SplashScreen'
 import { useChat } from './hooks/useChat'
 import {
   fetchModels, fetchTools, fetchFiles, uploadFile, deleteFile,
@@ -12,6 +13,20 @@ import {
 } from './hooks/api'
 
 export default function App() {
+  // Splash / title screen - dismissed after user clicks "Start Chat"
+  const [showSplash, setShowSplash] = useState(() => {
+    try {
+      return sessionStorage.getItem('nexus:splashDismissed') !== '1'
+    } catch {
+      return true
+    }
+  })
+
+  const dismissSplash = useCallback(() => {
+    try { sessionStorage.setItem('nexus:splashDismissed', '1') } catch {}
+    setShowSplash(false)
+  }, [])
+
   // State
   const [models, setModels] = useState([])
   const [tools, setTools] = useState([])
@@ -501,6 +516,7 @@ export default function App() {
 
   return (
     <div className="app-layout">
+      {showSplash && <SplashScreen onStart={dismissSplash} />}
       <Sidebar
         models={models}
         selectedModel={selectedModel}
