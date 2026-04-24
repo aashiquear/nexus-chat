@@ -2,8 +2,90 @@ import React, { useState, useCallback } from 'react'
 import {
   User, Bot, Wrench, CheckCircle2, ChevronDown, ChevronRight,
   BarChart3, Image as ImageIcon, Eye, Copy, Check as CheckIcon,
+  Brain,
 } from 'lucide-react'
 import LazyPlot from './LazyPlot'
+
+// Some models (Gemma "thinking" variants, DeepSeek-R1, Qwen-thinking, etc.)
+// emit their reasoning inside <think>…</think> or <thinking>…</thinking>.
+// Strip those out of the visible answer and surface them in a collapsible
+// dropdown so users can inspect the thought process if they want.
+function splitThinking(text) {
+  if (!text) return { thinking: '', answer: '', thinkingComplete: false, hasThinking: false }
+
+  const openRe = /<(think(?:ing)?)>/i
+  const openMatch = text.match(openRe)
+  if (!openMatch) {
+    return { thinking: '', answer: text, thinkingComplete: false, hasThinking: false }
+  }
+
+  const tag = openMatch[1]
+  const openIdx = openMatch.index
+  const beforeThink = text.slice(0, openIdx)
+  const afterOpen = text.slice(openIdx + openMatch[0].length)
+
+  const closeRe = new RegExp(`</${tag}>`, 'i')
+  const closeMatch = afterOpen.match(closeRe)
+  if (!closeMatch) {
+    // Still streaming the thought; nothing after to render yet.
+    return {
+      thinking: afterOpen,
+      answer: beforeThink,
+      thinkingComplete: false,
+      hasThinking: true,
+    }
+  }
+
+  const thinking = afterOpen.slice(0, closeMatch.index)
+  const afterClose = afterOpen.slice(closeMatch.index + closeMatch[0].length)
+  return {
+    thinking,
+    answer: beforeThink + afterClose,
+    thinkingComplete: true,
+    hasThinking: true,
+  }
+}
+
+function ThinkingBlock({ text, complete }) {
+  // While streaming, leave the thought open so users see it tick along.
+  // Once complete, collapse it to a clickable dropdown (closed by default).
+  const [isOpen, setIsOpen] = useState(!complete)
+
+  // Auto-collapse once the thought is sealed off, but only on the
+  // transition (don't fight the user if they re-open it).
+  const prevCompleteRef = React.useRef(complete)
+  React.useEffect(() => {
+    if (!prevCompleteRef.current && complete) setIsOpen(false)
+    prevCompleteRef.current = complete
+  }, [complete])
+
+  const trimmed = (text || '').trim()
+  if (!trimmed) return null
+
+  return (
+    <div className={`thinking-block ${complete ? 'thinking-complete' : 'thinking-active'}`}>
+      <button
+        className="thinking-header"
+        onClick={() => setIsOpen((v) => !v)}
+        type="button"
+      >
+        <span className="thinking-chevron">
+          {isOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+        </span>
+        <Brain size={13} className={complete ? '' : 'thinking-pulse'} />
+        <span className="thinking-label">
+          {complete ? 'Thought process' : 'Thinking…'}
+        </span>
+      </button>
+      {isOpen && (
+        <div className="thinking-body">
+          {trimmed}
+          {!complete && <span className="thinking-cursor">▍</span>}
+        </div>
+      )}
+    </div>
+  )
+}
 
 // Copy-to-clipboard code block wrapper
 function CodeBlock({ code, lang }) {
@@ -434,6 +516,12 @@ export default function ChatMessage({ message, onOpenCanvas }) {
     } catch (_e) { return false }
   })
 
+  // Pull <think>…</think> reasoning out of assistant messages so it renders
+  // separately in a collapsible block instead of inline with the answer.
+  const { thinking, answer, thinkingComplete, hasThinking } = isUser
+    ? { thinking: '', answer: message.content, thinkingComplete: false, hasThinking: false }
+    : splitThinking(message.content)
+
   return (
     <div className={`message ${isUser ? 'message-user' : ''}`}>
       <div className="message-header">
@@ -445,7 +533,10 @@ export default function ChatMessage({ message, onOpenCanvas }) {
         </span>
       </div>
       <div className="message-body">
-        {isUser ? <p>{message.content}</p> : renderContent(message.content)}
+        {hasThinking && (
+          <ThinkingBlock text={thinking} complete={thinkingComplete} />
+        )}
+        {isUser ? <p>{message.content}</p> : renderContent(answer)}
 
         {/* Collapsible tool reasoning */}
         {toolPairs.length > 0 && (

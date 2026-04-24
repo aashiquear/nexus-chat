@@ -20,6 +20,37 @@ const ICON_MAP = {
   eye: Eye,
 }
 
+// Collapse long tool descriptions so the MCP list stays scannable.
+// Shows a single-line summary; expands to full text on click.
+const TOOL_DESC_SUMMARY_LIMIT = 80
+
+function ToolDescription({ text }) {
+  const [expanded, setExpanded] = useState(false)
+  if (!text) return null
+
+  const isLong = text.length > TOOL_DESC_SUMMARY_LIMIT
+  if (!isLong) return <div className="toggle-desc">{text}</div>
+
+  const summary = text.slice(0, TOOL_DESC_SUMMARY_LIMIT).trimEnd() + '…'
+  const handleClick = (e) => {
+    e.stopPropagation()
+    setExpanded((v) => !v)
+  }
+  return (
+    <div className={`toggle-desc tool-desc-collapsible ${expanded ? 'expanded' : ''}`}>
+      <span className="tool-desc-text">{expanded ? text : summary}</span>
+      <button
+        type="button"
+        className="tool-desc-toggle"
+        onClick={handleClick}
+        title={expanded ? 'Show less' : 'Show full description'}
+      >
+        {expanded ? 'less' : 'more'}
+      </button>
+    </div>
+  )
+}
+
 function AccordionSection({ label, count, isOpen, onToggle, children }) {
   const Chevron = isOpen ? ChevronDown : ChevronRight
 
@@ -220,9 +251,9 @@ export default function Sidebar({
                     {active && <Check size={11} color="#fff" strokeWidth={3} />}
                   </div>
                   <Icon size={15} className="toggle-icon" />
-                  <div>
+                  <div className="toggle-text">
                     <div className="toggle-label">{tool.name}</div>
-                    <div className="toggle-desc">{tool.description}</div>
+                    <ToolDescription text={tool.description} />
                   </div>
                 </div>
               )
@@ -315,9 +346,9 @@ export default function Sidebar({
                             {active && <Check size={11} color="#fff" strokeWidth={3} />}
                           </div>
                           <Icon size={15} className="toggle-icon" />
-                          <div>
+                          <div className="toggle-text">
                             <div className="toggle-label">{tool.name}</div>
-                            <div className="toggle-desc">{tool.description}</div>
+                            <ToolDescription text={tool.description} />
                           </div>
                         </div>
                       )
@@ -377,7 +408,7 @@ export default function Sidebar({
               )
             })}
 
-            {/* Upload progress indicator */}
+            {/* Upload progress indicator: shows both upload and embedding stages */}
             {uploadProgress && (
               <div className="upload-progress-item">
                 <FileText size={15} className="toggle-icon" />
@@ -387,12 +418,17 @@ export default function Sidebar({
                   </div>
                   <div className="upload-progress-bar-track">
                     <div
-                      className="upload-progress-bar-fill"
-                      style={{ width: `${uploadProgress.progress}%` }}
+                      className={`upload-progress-bar-fill ${uploadProgress.stage === 'embedding' ? 'embedding' : ''}`}
+                      style={{ width: `${uploadProgress.percent || 0}%` }}
                     />
                   </div>
                   <div className="toggle-desc" style={{ marginTop: 2 }}>
-                    {uploadProgress.progress}% uploading...
+                    {uploadProgress.percent || 0}%{' '}
+                    {uploadProgress.stage === 'embedding'
+                      ? 'embedding…'
+                      : uploadProgress.stage === 'error'
+                      ? 'failed'
+                      : 'uploading…'}
                   </div>
                 </div>
               </div>

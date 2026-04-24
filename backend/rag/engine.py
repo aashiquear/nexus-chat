@@ -5,6 +5,7 @@ Handles document ingestion, chunking, embedding, and retrieval.
 
 import hashlib
 import logging
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -20,8 +21,65 @@ class RAGEngine:
         self.chunk_overlap = config.get("chunk_overlap", 200)
         self.top_k = config.get("top_k", 5)
         self.persist_dir = config.get("persist_directory", "./data/vector_store")
+        # Batch chunks during embedding so we can update progress without
+        # holding the GIL on a single huge upsert. 32 is a sensible default
+        # for sentence-transformer / ONNX backends; tune via config.
+        self.embed_batch_size = config.get("embed_batch_size", 32)
+        # Optional cap on tokenizer max length — shorter sequences mean less
+        # padding and faster inference for the embedder.
+        self.embed_max_length = config.get("embed_max_length", 256)
         self._collection = None
         self._embedding_fn = None
+        # Per-file embedding progress: filename -> {stage, current, total, percent}
+        self._progress: dict[str, dict] = {}
+        self._progress_lock = threading.Lock()
+
+    def _build_embedding_fn(self):
+        """Build an ONNX-backed embedding function with optimized session options.
+
+        Falls back to ChromaDB's default if optimization isn't available.
+        Optimizations applied (per AWS / ONNX Runtime guidance):
+          - graph optimization level = ORT_ENABLE_ALL (operator fusion)
+          - intra-op threads scaled to CPU count
+          - bounded tokenizer max_length to reduce padding overhead
+        """
+        try:
+            from chromadb.utils import embedding_functions
+            ef = embedding_functions.ONNXMiniLM_L6_V2()
+            try:
+                import os
+                import onnxruntime as ort
+                so = ort.SessionOptions()
+                so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+                so.intra_op_num_threads = max(1, (os.cpu_count() or 2))
+                # ChromaDB's ONNXMiniLM caches the session on first use as
+                # ``_model``; pre-warm with our optimized session so
+                # subsequent calls reuse it.
+                if hasattr(ef, "_init_model_and_tokenizer"):
+                    ef._init_model_and_tokenizer()
+                if hasattr(ef, "model") and ef.model is not None:
+                    # Replace the default session with an optimized one.
+                    model_path = getattr(ef, "DOWNLOAD_PATH", None) or getattr(
+                        ef, "_MODEL_DOWNLOAD_PATH", None
+                    )
+                    if model_path:
+                        ef.model = ort.InferenceSession(
+                            str(model_path),
+                            sess_options=so,
+                            providers=["CPUExecutionProvider"],
+                        )
+                # Cap tokenizer length — see AWS guidance on padding overhead.
+                if hasattr(ef, "tokenizer") and ef.tokenizer is not None:
+                    try:
+                        ef.tokenizer.model_max_length = self.embed_max_length
+                    except Exception:
+                        pass
+            except Exception as opt_err:
+                logger.info("ONNX session optimization skipped: %s", opt_err)
+            return ef
+        except Exception as e:
+            logger.info("Custom embedding function unavailable, using default: %s", e)
+            return None
 
     def _get_collection(self):
         if self._collection is not None:
@@ -34,10 +92,17 @@ class RAGEngine:
                 path=self.persist_dir,
                 settings=chromadb.Settings(anonymized_telemetry=False),
             )
-            self._collection = client.get_or_create_collection(
-                name="nexus_docs",
-                metadata={"hnsw:space": "cosine"},
-            )
+            if self._embedding_fn is None:
+                self._embedding_fn = self._build_embedding_fn()
+
+            kwargs = {
+                "name": "nexus_docs",
+                "metadata": {"hnsw:space": "cosine"},
+            }
+            if self._embedding_fn is not None:
+                kwargs["embedding_function"] = self._embedding_fn
+
+            self._collection = client.get_or_create_collection(**kwargs)
             return self._collection
         except ImportError:
             logger.warning("chromadb not installed - RAG disabled")
@@ -55,10 +120,40 @@ class RAGEngine:
             start += self.chunk_size - self.chunk_overlap
         return chunks
 
+    # ------------------------------------------------------------------
+    # Progress tracking
+    # ------------------------------------------------------------------
+    def _set_progress(self, filename: str, **fields):
+        with self._progress_lock:
+            current = self._progress.get(filename, {"filename": filename})
+            current.update(fields)
+            self._progress[filename] = current
+
+    def get_progress(self, filename: str) -> dict | None:
+        """Return the current embedding progress for a file, if any."""
+        with self._progress_lock:
+            entry = self._progress.get(filename)
+            return dict(entry) if entry else None
+
+    def clear_progress(self, filename: str):
+        with self._progress_lock:
+            self._progress.pop(filename, None)
+
     async def ingest_file(self, filepath: Path, metadata: dict | None = None) -> dict:
-        """Read a file, chunk it, and add to the vector store."""
+        """Read a file, chunk it, and add to the vector store.
+
+        Embeds chunks in batches so progress can be reported and very
+        large files don't block on a single huge upsert. Progress is
+        exposed via :meth:`get_progress` keyed by ``filepath.name``.
+        """
+        filename = filepath.name
+        self._set_progress(
+            filename, stage="reading", current=0, total=0, percent=0
+        )
+
         collection = self._get_collection()
         if collection is None:
+            self._set_progress(filename, stage="error", percent=0)
             return {"error": "Vector store not available"}
 
         # Read file content
@@ -75,30 +170,57 @@ class RAGEngine:
             else:
                 text = filepath.read_text(errors="replace")
         except Exception as e:
+            self._set_progress(filename, stage="error", percent=0)
             return {"error": f"Failed to read file: {e}"}
 
-        # Chunk and store
+        self._set_progress(filename, stage="chunking", percent=0)
         chunks = self.chunk_text(text)
         if not chunks:
+            self._set_progress(filename, stage="error", percent=0)
             return {"error": "No content extracted from file"}
 
         file_id = hashlib.md5(str(filepath).encode()).hexdigest()[:12]
-        ids = [f"{file_id}_chunk_{i}" for i in range(len(chunks))]
         meta = metadata or {}
-        metadatas = [
-            {**meta, "source": filepath.name, "chunk_index": i}
-            for i in range(len(chunks))
-        ]
+        total = len(chunks)
+        batch_size = max(1, int(self.embed_batch_size))
 
-        collection.upsert(
-            documents=chunks,
-            ids=ids,
-            metadatas=metadatas,
+        self._set_progress(
+            filename, stage="embedding", current=0, total=total, percent=0
+        )
+
+        # Batched embedding/upsert: keeps memory bounded and lets us
+        # report progress incrementally to the UI.
+        for start in range(0, total, batch_size):
+            end = min(start + batch_size, total)
+            batch_chunks = chunks[start:end]
+            batch_ids = [f"{file_id}_chunk_{i}" for i in range(start, end)]
+            batch_meta = [
+                {**meta, "source": filename, "chunk_index": i}
+                for i in range(start, end)
+            ]
+            try:
+                collection.upsert(
+                    documents=batch_chunks,
+                    ids=batch_ids,
+                    metadatas=batch_meta,
+                )
+            except Exception as e:
+                logger.error("Embedding batch failed for %s: %s", filename, e)
+                self._set_progress(filename, stage="error", percent=0)
+                return {"error": f"Embedding failed: {e}"}
+
+            percent = int(end / total * 100)
+            self._set_progress(
+                filename, stage="embedding", current=end, total=total, percent=percent
+            )
+
+        self._set_progress(
+            filename, stage="complete", current=total, total=total, percent=100
         )
 
         return {
-            "filename": filepath.name,
-            "chunks": len(chunks),
+            "filename": filename,
+            "chunks": total,
             "file_id": file_id,
         }
 

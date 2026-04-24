@@ -89,11 +89,20 @@ export default function ChatInput({
   return (
     <div className="input-area">
       <div className="input-container">
-        {/* Upload progress chip */}
+        {/* Upload progress chip: shows current stage (uploading vs embedding) and % */}
         {uploadProgress && (
-          <div className="upload-progress-chip">
-            <CircularProgress progress={uploadProgress.progress} />
-            <span className="upload-progress-chip-name">{uploadProgress.filename}</span>
+          <div className={`upload-progress-chip stage-${uploadProgress.stage || 'uploading'}`}>
+            <CircularProgress progress={uploadProgress.percent || 0} />
+            <div className="upload-progress-chip-text">
+              <span className="upload-progress-chip-name">{uploadProgress.filename}</span>
+              <span className="upload-progress-chip-stage">
+                {uploadProgress.stage === 'embedding'
+                  ? 'Embedding into vector store…'
+                  : uploadProgress.stage === 'error'
+                  ? 'Failed'
+                  : 'Uploading…'}
+              </span>
+            </div>
           </div>
         )}
         {selectedFiles.length > 0 && (

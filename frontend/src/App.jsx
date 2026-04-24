@@ -8,6 +8,7 @@ import SplashScreen from './components/SplashScreen'
 import { useChat } from './hooks/useChat'
 import {
   fetchModels, fetchTools, fetchFiles, uploadFile, deleteFile,
+  fetchUploadProgress,
   fetchMCPServers, reconnectMCPServer,
   fetchConversations, fetchConversation, saveConversation, deleteConversation,
 } from './hooks/api'
@@ -49,7 +50,8 @@ export default function App() {
   const [canvasWidth, setCanvasWidth] = useState(null) // null = auto-calculate initial
   const isDraggingRef = useRef(false)
 
-  // Upload progress state: { filename, progress (0-100) } or null
+  // Upload progress state: { filename, stage, percent (0-100) } or null
+  // Stages: 'uploading' (bytes -> server) then 'embedding' (server -> vector store)
   const [uploadProgress, setUploadProgress] = useState(null)
 
   // Token usage tracking: array of { prompt_tokens, completion_tokens, total_tokens } per response
@@ -146,10 +148,42 @@ export default function App() {
   // Upload
   const handleUpload = async (file) => {
     try {
-      setUploadProgress({ filename: file.name, progress: 0 })
-      await uploadFile(file, (progress) => {
-        setUploadProgress({ filename: file.name, progress })
+      // Stage 1: bytes leaving the browser
+      setUploadProgress({ filename: file.name, stage: 'uploading', percent: 0 })
+      await uploadFile(file, (percent) => {
+        setUploadProgress({ filename: file.name, stage: 'uploading', percent })
       })
+
+      // Stage 2: server-side embedding (chunks → vector store).
+      // Backend returns immediately; poll for embedding progress.
+      setUploadProgress({ filename: file.name, stage: 'embedding', percent: 0 })
+
+      let done = false
+      let attempts = 0
+      while (!done && attempts < 600) {
+        attempts += 1
+        const progress = await fetchUploadProgress(file.name)
+        if (!progress || progress.stage === 'unknown') {
+          // Backend hasn't recorded progress yet — keep polling briefly
+          await new Promise((r) => setTimeout(r, 250))
+          continue
+        }
+        const stage = progress.stage === 'complete' ? 'embedding' : progress.stage
+        setUploadProgress({
+          filename: file.name,
+          stage: stage === 'reading' || stage === 'chunking' || stage === 'queued'
+            ? 'embedding'
+            : stage,
+          percent: progress.percent || 0,
+          subStage: progress.stage,
+        })
+        if (progress.stage === 'complete' || progress.stage === 'error') {
+          done = true
+          break
+        }
+        await new Promise((r) => setTimeout(r, 350))
+      }
+
       setUploadProgress(null)
       const updatedFiles = await fetchFiles()
       setFiles(updatedFiles)

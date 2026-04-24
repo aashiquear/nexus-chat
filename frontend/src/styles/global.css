@@ -236,6 +236,49 @@ body {
   margin-top: 1px;
 }
 
+/* Constrain text column so long descriptions don't push the row layout */
+.toggle-text {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Collapsible description: single-line summary by default, expands on click. */
+.tool-desc-collapsible {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.tool-desc-collapsible .tool-desc-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-desc-collapsible.expanded .tool-desc-text {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.tool-desc-toggle {
+  background: none;
+  border: none;
+  padding: 0 2px;
+  margin: 0;
+  font: inherit;
+  font-size: 11px;
+  color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.tool-desc-toggle:hover {
+  text-decoration: underline;
+}
+
 .toggle-icon {
   color: var(--text-tertiary);
   flex-shrink: 0;
@@ -789,6 +832,86 @@ body {
   display: block;
 }
 
+/* ---- Thinking-Model Reasoning Block ---- */
+/* Renders <think>…</think> output from reasoning models in a muted,
+   collapsible box that auto-collapses once the thought is sealed off. */
+.thinking-block {
+  margin: 4px 0 8px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.thinking-block.thinking-active {
+  border-style: solid;
+  border-color: var(--accent-border);
+  background: var(--accent-subtle);
+}
+
+.thinking-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.thinking-header:hover {
+  background: var(--bg-panel-hover);
+}
+
+.thinking-chevron {
+  display: flex;
+  align-items: center;
+  opacity: 0.6;
+}
+
+.thinking-label {
+  letter-spacing: 0.01em;
+}
+
+.thinking-pulse {
+  animation: thinkingPulse 1.4s ease-in-out infinite;
+  color: var(--accent);
+}
+
+@keyframes thinkingPulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+.thinking-body {
+  padding: 8px 12px 10px;
+  border-top: 1px solid var(--border-light);
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+  font-style: italic;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.55;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.thinking-cursor {
+  display: inline-block;
+  margin-left: 2px;
+  color: var(--accent);
+  animation: thinkingCursor 1s steps(1) infinite;
+}
+
+@keyframes thinkingCursor {
+  50% { opacity: 0; }
+}
+
 /* ---- Collapsible Tool Reasoning Dropdowns ---- */
 .tool-reasoning-group {
   margin: 8px 0 4px;
@@ -1213,6 +1336,12 @@ body {
   animation: fadeIn 0.25s ease;
 }
 
+.upload-progress-chip-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 .upload-progress-chip-name {
   font-size: 12px;
   font-weight: 500;
@@ -1220,7 +1349,27 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 200px;
+  max-width: 240px;
+}
+
+.upload-progress-chip-stage {
+  font-size: 10.5px;
+  color: var(--text-tertiary);
+  margin-top: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 240px;
+}
+
+/* Distinct hint for the embedding stage. */
+.upload-progress-chip.stage-embedding {
+  background: rgba(90, 122, 138, 0.08);
+  border-color: rgba(90, 122, 138, 0.25);
+}
+
+.upload-progress-chip.stage-embedding .upload-progress-chip-name {
+  color: var(--info);
 }
 
 .circular-progress {
@@ -1435,6 +1584,11 @@ body {
   background: var(--accent);
   border-radius: var(--radius-full);
   transition: width 0.2s ease;
+}
+
+/* Embedding stage uses a different hue so users can tell the two phases apart. */
+.upload-progress-bar-fill.embedding {
+  background: linear-gradient(90deg, var(--accent) 0%, var(--info) 100%);
 }
 
 /* ---- Canvas Resize Divider ---- */

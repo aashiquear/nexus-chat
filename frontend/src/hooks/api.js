@@ -46,6 +46,14 @@ export async function uploadFile(file, onProgress) {
   })
 }
 
+export async function fetchUploadProgress(filename) {
+  const res = await fetch(
+    `${BASE}/api/upload/progress/${encodeURIComponent(filename)}`
+  )
+  if (!res.ok) return null
+  return res.json()
+}
+
 export async function deleteFile(filename) {
   const res = await fetch(`${BASE}/api/files/${encodeURIComponent(filename)}`, {
     method: 'DELETE',

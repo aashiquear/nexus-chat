@@ -12,7 +12,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 import uuid
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, HTTPException, Request
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, HTTPException, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -100,7 +100,12 @@ async def list_tools():
 
 @app.post("/api/upload")
 async def upload_file(file: UploadFile = File(...)):
-    """Upload a file for RAG and tool use."""
+    """Upload a file for RAG and tool use.
+
+    Returns as soon as the bytes hit disk; embedding runs asynchronously
+    so the client can poll ``/api/upload/progress/{filename}`` to track
+    the embedding stage separately from the byte-transfer stage.
+    """
     upload_cfg = config.get("uploads", {})
     max_size = upload_cfg.get("max_file_size_mb", 50) * 1024 * 1024
     allowed = upload_cfg.get("allowed_extensions", [])
@@ -119,16 +124,46 @@ async def upload_file(file: UploadFile = File(...)):
     with open(filepath, "wb") as f:
         f.write(content)
 
-    # Ingest into RAG if enabled
-    rag_result = {}
+    # Kick off embedding in the background so the upload response returns
+    # immediately. The client polls /api/upload/progress to track it.
+    embedding_status = "skipped"
     if orchestrator.rag_engine:
-        rag_result = await orchestrator.rag_engine.ingest_file(filepath)
+        rag = orchestrator.rag_engine
+        rag._set_progress(file.filename, stage="queued", current=0, total=0, percent=0)
+
+        async def _ingest_in_background():
+            try:
+                await rag.ingest_file(filepath)
+            except Exception as e:
+                logger.error("Background ingestion failed for %s: %s", file.filename, e)
+                rag._set_progress(file.filename, stage="error", percent=0)
+
+        import asyncio
+        asyncio.create_task(_ingest_in_background())
+        embedding_status = "started"
 
     return {
         "filename": file.filename,
         "size": len(content),
-        "rag": rag_result,
+        "embedding_status": embedding_status,
     }
+
+
+@app.get("/api/upload/progress/{filename}")
+async def upload_progress(filename: str):
+    """Poll the embedding progress for an uploaded file.
+
+    Returns ``{stage, percent, current, total}`` where ``stage`` is one
+    of: ``queued``, ``reading``, ``chunking``, ``embedding``,
+    ``complete``, ``error``. Returns ``stage: "unknown"`` if the
+    filename has no progress entry (e.g. completed long ago and cleared).
+    """
+    if not orchestrator.rag_engine:
+        return {"stage": "unknown", "percent": 0}
+    progress = orchestrator.rag_engine.get_progress(filename)
+    if not progress:
+        return {"stage": "unknown", "percent": 0}
+    return progress
 
 
 @app.get("/api/files")
