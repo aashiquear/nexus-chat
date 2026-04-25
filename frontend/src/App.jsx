@@ -68,6 +68,7 @@ export default function App() {
   const chatEndRef = useRef(null)
   const chatAreaRef = useRef(null)
   const streamBufferRef = useRef('')
+  const responseStartRef = useRef(null)
   const userScrolledRef = useRef(false)
   const { connect, sendMessage, isConnected, isStreaming } = useChat()
 
@@ -382,6 +383,7 @@ export default function App() {
     setIsTyping(true)
     setLlmStatus({ stage: 'initiated' })
     streamBufferRef.current = ''
+    responseStartRef.current = Date.now()
     userScrolledRef.current = false  // Reset scroll on new message
 
     // Build message history for the API
@@ -425,6 +427,7 @@ export default function App() {
                   content: streamBufferRef.current,
                   toolCalls: [...toolCalls],
                   toolResults: [...toolResults],
+                  startedAt: updated[lastIdx].startedAt ?? responseStartRef.current,
                 }
               } else {
                 updated.push({
@@ -432,6 +435,7 @@ export default function App() {
                   content: streamBufferRef.current,
                   toolCalls: [...toolCalls],
                   toolResults: [...toolResults],
+                  startedAt: responseStartRef.current,
                 })
               }
               return updated
@@ -462,6 +466,7 @@ export default function App() {
                 updated[lastIdx] = {
                   ...updated[lastIdx],
                   toolCalls: [...toolCalls],
+                  startedAt: updated[lastIdx].startedAt ?? responseStartRef.current,
                 }
               } else {
                 updated.push({
@@ -469,6 +474,7 @@ export default function App() {
                   content: '',
                   toolCalls: [...toolCalls],
                   toolResults: [],
+                  startedAt: responseStartRef.current,
                 })
               }
               return updated
@@ -522,6 +528,26 @@ export default function App() {
           case 'done':
             setIsTyping(false)
             setLlmStatus({ stage: 'idle' })
+            // Freeze the response timer on the last assistant message.
+            {
+              const start = responseStartRef.current
+              if (start) {
+                const finalMs = Date.now() - start
+                setMessages((prev) => {
+                  const updated = [...prev]
+                  const lastIdx = updated.length - 1
+                  if (lastIdx >= 0 && updated[lastIdx].role === 'assistant') {
+                    updated[lastIdx] = {
+                      ...updated[lastIdx],
+                      durationMs: finalMs,
+                      startedAt: updated[lastIdx].startedAt ?? start,
+                    }
+                  }
+                  return updated
+                })
+              }
+              responseStartRef.current = null
+            }
             // Track token usage if provided
             if (event.usage) {
               setTokenUsageHistory((prev) => {
@@ -560,6 +586,7 @@ export default function App() {
           case 'error':
             setIsTyping(false)
             setLlmStatus({ stage: 'error', detail: event.content })
+            responseStartRef.current = null
             setMessages((prev) => [
               ...prev,
               {

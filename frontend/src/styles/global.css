@@ -1349,52 +1349,89 @@ body {
   50%      { transform: scale(1.15); opacity: 1; }
 }
 
-/* ---- Five connecting dots animation (used in status pop-up) ---- */
-.connecting-dots {
-  position: relative;
+/* ---- Chatbot pulse: trapezoid of 4 dots + bright centre, used in
+       the LLM status pop-up. Inherits currentColor from the chip so it
+       matches the active accent palette automatically. ---- */
+.chatbot-pulse {
+  flex-shrink: 0;
+  vertical-align: middle;
+  overflow: visible;
+}
+
+.chatbot-pulse-spoke {
+  stroke: currentColor;
+  stroke-width: 0.7;
+  opacity: 0.35;
+  animation: chatbotPulseSpoke 1.4s ease-in-out infinite;
+}
+
+.chatbot-pulse-dot {
+  fill: currentColor;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: chatbotPulseDot 1.4s ease-in-out infinite;
+}
+
+.chatbot-pulse-core {
+  fill: currentColor;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: chatbotPulseCore 1.6s ease-in-out infinite;
+}
+
+@keyframes chatbotPulseDot {
+  0%, 100% { opacity: 0.35; transform: scale(0.75); }
+  50%      { opacity: 1;    transform: scale(1.15); }
+}
+
+@keyframes chatbotPulseCore {
+  0%, 100% { opacity: 0.85; transform: scale(0.92); }
+  50%      { opacity: 1;    transform: scale(1.12); }
+}
+
+@keyframes chatbotPulseSpoke {
+  0%, 100% { opacity: 0.2; }
+  50%      { opacity: 0.55; }
+}
+
+/* ---- Response timer chip (below each assistant message) ---- */
+.response-timer {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 12px;
-  padding: 0 4px;
+  gap: 5px;
+  margin: 6px 0 0 34px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  width: fit-content;
 }
 
-.connecting-dots .connecting-line {
-  position: absolute;
-  left: 4px;
-  right: 4px;
-  top: 50%;
-  height: 2px;
-  border-radius: 2px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    currentColor 50%,
-    transparent 100%
-  );
-  background-size: 200% 100%;
-  animation: connectingLineSlide 1.4s linear infinite;
-  opacity: 0.4;
+.response-timer.is-live {
+  color: var(--accent);
+  background: var(--accent-subtle);
+  border-color: var(--accent-border);
+  animation: responseTimerLivePulse 1.6s ease-in-out infinite;
 }
 
-.connecting-dots .connecting-dot {
-  position: relative;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: currentColor;
-  box-shadow: 0 0 0 1.5px var(--bg-panel);
-  animation: connectingDotPulse 1.4s ease-in-out infinite;
+.response-timer-value {
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
-@keyframes connectingDotPulse {
-  0%, 100% { transform: scale(0.7); opacity: 0.5; }
-  50%      { transform: scale(1.15); opacity: 1; }
+.response-timer-tag {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.7;
 }
 
-@keyframes connectingLineSlide {
-  0%   { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+@keyframes responseTimerLivePulse {
+  0%, 100% { opacity: 0.85; }
+  50%      { opacity: 1; }
 }
 
 /* ---- Input Area ---- */

@@ -1,10 +1,49 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import {
   User, Bot, Wrench, CheckCircle2, ChevronDown, ChevronRight,
   BarChart3, Image as ImageIcon, Eye, Copy, Check as CheckIcon,
-  Brain,
+  Brain, Timer,
 } from 'lucide-react'
 import LazyPlot from './LazyPlot'
+
+// Format an elapsed millisecond count for the response-duration chip.
+// Sub-second values use one decimal so a snappy reply still shows
+// motion ("0.4s"); longer ones break into m/s ("1m 12s").
+function formatDuration(ms) {
+  if (ms == null) return ''
+  const sec = ms / 1000
+  if (sec < 1) return `${sec.toFixed(1)}s`
+  if (sec < 60) return `${sec.toFixed(sec < 10 ? 1 : 0)}s`
+  const m = Math.floor(sec / 60)
+  const s = Math.floor(sec % 60)
+  return `${m}m ${s.toString().padStart(2, '0')}s`
+}
+
+function ResponseTimer({ startedAt, durationMs }) {
+  // Live tick while streaming; freeze on the recorded final duration once
+  // the "done" event lands. Both branches share the same chip styling so
+  // the transition is invisible.
+  const [now, setNow] = useState(() => Date.now())
+  const isDone = durationMs != null
+
+  useEffect(() => {
+    if (isDone || !startedAt) return
+    const id = setInterval(() => setNow(Date.now()), 100)
+    return () => clearInterval(id)
+  }, [isDone, startedAt])
+
+  if (!startedAt && !isDone) return null
+  const elapsed = isDone ? durationMs : Math.max(0, now - startedAt)
+
+  return (
+    <div className={`response-timer ${isDone ? 'is-final' : 'is-live'}`}
+         title={isDone ? 'Total response time' : 'Elapsed response time'}>
+      <Timer size={11} />
+      <span className="response-timer-value">{formatDuration(elapsed)}</span>
+      {!isDone && <span className="response-timer-tag">elapsed</span>}
+    </div>
+  )
+}
 
 // Some models (Gemma "thinking" variants, DeepSeek-R1, Qwen-thinking,
 // Anthropic extended thinking, etc.) emit their reasoning inside
@@ -724,6 +763,12 @@ export default function ChatMessage({ message, onOpenCanvas }) {
           return null
         })}
       </div>
+      {!isUser && (message.startedAt || message.durationMs != null) && (
+        <ResponseTimer
+          startedAt={message.startedAt}
+          durationMs={message.durationMs}
+        />
+      )}
     </div>
   )
 }
