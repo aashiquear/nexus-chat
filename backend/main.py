@@ -12,7 +12,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 import uuid
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, HTTPException, Request
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, HTTPException, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -88,8 +88,14 @@ async def health():
 
 @app.get("/api/models")
 async def list_models():
-    """Return all available LLM models."""
-    return {"models": orchestrator.get_available_models()}
+    """Return all configured LLM models, annotated with whether each is
+    currently available on its provider's remote server (Ollama tags,
+    Anthropic ``/v1/models``, OpenAI ``/v1/models``).
+
+    Probe results are cached briefly per-provider so this endpoint stays
+    cheap to call from the frontend on demand.
+    """
+    return {"models": await orchestrator.get_available_models_async()}
 
 
 @app.get("/api/tools")
@@ -98,9 +104,19 @@ async def list_tools():
     return {"tools": orchestrator.get_available_tools()}
 
 
+UPLOAD_STREAM_CHUNK = 1024 * 1024  # 1 MiB per read — bounded memory
+
+
 @app.post("/api/upload")
 async def upload_file(file: UploadFile = File(...)):
-    """Upload a file for RAG and tool use."""
+    """Upload a file for RAG and tool use.
+
+    The request body is streamed to disk in 1 MiB chunks so multi-GB
+    uploads don't sit in memory. Once bytes are on disk the response
+    returns immediately and embedding runs asynchronously; the client
+    polls ``/api/upload/progress/{filename}`` to track the embedding
+    stage separately from the byte-transfer stage.
+    """
     upload_cfg = config.get("uploads", {})
     max_size = upload_cfg.get("max_file_size_mb", 50) * 1024 * 1024
     allowed = upload_cfg.get("allowed_extensions", [])
@@ -110,25 +126,70 @@ async def upload_file(file: UploadFile = File(...)):
     if allowed and ext not in allowed:
         raise HTTPException(400, f"File type '{ext}' not allowed. Allowed: {allowed}")
 
-    # Save file
+    # Stream to disk in chunks; abort early if the size limit is exceeded.
     filepath = upload_dir / file.filename
-    content = await file.read()
-    if len(content) > max_size:
-        raise HTTPException(400, f"File too large. Max: {max_size // (1024*1024)}MB")
+    written = 0
+    try:
+        with open(filepath, "wb") as out:
+            while True:
+                chunk = await file.read(UPLOAD_STREAM_CHUNK)
+                if not chunk:
+                    break
+                written += len(chunk)
+                if written > max_size:
+                    out.close()
+                    try:
+                        filepath.unlink()
+                    except FileNotFoundError:
+                        pass
+                    raise HTTPException(
+                        400,
+                        f"File too large. Max: {max_size // (1024 * 1024)} MB",
+                    )
+                out.write(chunk)
+    finally:
+        await file.close()
 
-    with open(filepath, "wb") as f:
-        f.write(content)
-
-    # Ingest into RAG if enabled
-    rag_result = {}
+    # Kick off embedding in the background so the upload response returns
+    # immediately. The client polls /api/upload/progress to track it.
+    embedding_status = "skipped"
     if orchestrator.rag_engine:
-        rag_result = await orchestrator.rag_engine.ingest_file(filepath)
+        rag = orchestrator.rag_engine
+        rag._set_progress(file.filename, stage="queued", current=0, total=0, percent=0)
+
+        async def _ingest_in_background():
+            try:
+                await rag.ingest_file(filepath)
+            except Exception as e:
+                logger.error("Background ingestion failed for %s: %s", file.filename, e)
+                rag._set_progress(file.filename, stage="error", percent=0)
+
+        import asyncio
+        asyncio.create_task(_ingest_in_background())
+        embedding_status = "started"
 
     return {
         "filename": file.filename,
-        "size": len(content),
-        "rag": rag_result,
+        "size": written,
+        "embedding_status": embedding_status,
     }
+
+
+@app.get("/api/upload/progress/{filename}")
+async def upload_progress(filename: str):
+    """Poll the embedding progress for an uploaded file.
+
+    Returns ``{stage, percent, current, total}`` where ``stage`` is one
+    of: ``queued``, ``reading``, ``chunking``, ``embedding``,
+    ``complete``, ``error``. Returns ``stage: "unknown"`` if the
+    filename has no progress entry (e.g. completed long ago and cleared).
+    """
+    if not orchestrator.rag_engine:
+        return {"stage": "unknown", "percent": 0}
+    progress = orchestrator.rag_engine.get_progress(filename)
+    if not progress:
+        return {"stage": "unknown", "percent": 0}
+    return progress
 
 
 @app.get("/api/files")

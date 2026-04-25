@@ -14,6 +14,7 @@ Each conversation is a JSON file in data/conversations/:
 
 import json
 import logging
+import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -23,21 +24,51 @@ logger = logging.getLogger(__name__)
 CONVERSATIONS_DIR = Path("./data/conversations")
 CONVERSATIONS_DIR.mkdir(parents=True, exist_ok=True)
 
+# Common English stopwords filtered out when summarising the first user
+# prompt down to a 3-word sidebar title. Kept short on purpose — we want
+# a snappy heuristic, not a full NLP pipeline.
+_TITLE_STOPWORDS = {
+    "a", "an", "and", "are", "as", "at", "be", "by", "can", "could", "did",
+    "do", "does", "for", "from", "have", "has", "had", "he", "her", "him",
+    "his", "how", "i", "if", "in", "is", "it", "its", "just", "let", "me",
+    "my", "of", "on", "or", "our", "please", "she", "should", "so", "some",
+    "than", "that", "the", "their", "them", "then", "there", "these", "they",
+    "this", "those", "to", "us", "was", "we", "were", "what", "when", "where",
+    "which", "who", "why", "will", "with", "would", "you", "your",
+}
+
 
 def _path(conversation_id: str) -> Path:
     return CONVERSATIONS_DIR / f"{conversation_id}.json"
 
 
 def _derive_title(messages: list[dict]) -> str:
-    """Extract a short title from the first user message."""
+    """Summarise the first user message into ~3 words for the sidebar.
+
+    The heuristic strips punctuation, drops common stopwords, and keeps
+    the first three remaining tokens. If filtering leaves fewer than
+    three words (e.g. very short prompt or all stopwords) we fall back
+    to the first three raw words so the title always has signal.
+    """
     for msg in messages:
-        if msg.get("role") == "user" and msg.get("content"):
-            text = msg["content"].strip()
-            # Truncate to first line, max 60 chars
-            first_line = text.split("\n")[0]
-            if len(first_line) > 60:
-                return first_line[:57] + "..."
-            return first_line
+        if msg.get("role") != "user":
+            continue
+        text = (msg.get("content") or "").strip()
+        if not text:
+            continue
+        first_line = text.split("\n", 1)[0]
+        # Tokenise to alphanum-only words; keeps things like "GPT4" together.
+        raw_words = re.findall(r"[A-Za-z0-9][A-Za-z0-9'-]*", first_line)
+        if not raw_words:
+            continue
+        meaningful = [w for w in raw_words if w.lower() not in _TITLE_STOPWORDS]
+        chosen = meaningful[:3] if len(meaningful) >= 3 else raw_words[:3]
+        if not chosen:
+            continue
+        # Title-case the result, but preserve mixed-case identifiers
+        # (URLs, model names like "GPT5") that are already capitalised.
+        formatted = [w if any(c.isupper() for c in w[1:]) else w.capitalize() for w in chosen]
+        return " ".join(formatted)
     return "New conversation"
 
 

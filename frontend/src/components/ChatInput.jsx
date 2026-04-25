@@ -1,6 +1,65 @@
 import React, { useRef, useEffect, useState } from 'react'
-import { Send, Paperclip, X, BarChart2 } from 'lucide-react'
+import {
+  Send, Paperclip, X, BarChart2,
+  Sparkles, Brain, MessageSquare, Wrench, CircleCheck, AlertCircle,
+} from 'lucide-react'
 import StatsPopup from './StatsPopup'
+
+// Map an llmStatus.stage to the icon + label shown inside the pop-up.
+// `stage: 'idle'` collapses the pop-up to a quiet "awaiting prompt" state.
+const STATUS_VIEW = {
+  initiated:      { Icon: Sparkles,     label: 'Initiated' },
+  thinking:       { Icon: Brain,        label: 'Thinking' },
+  responding:     { Icon: MessageSquare,label: 'Responding' },
+  tool_calling:   { Icon: Wrench,       label: 'Calling tool' },
+  tool_executing: { Icon: Wrench,       label: 'Executing tool' },
+  idle:           { Icon: CircleCheck,  label: 'Awaiting chat prompt' },
+  error:          { Icon: AlertCircle,  label: 'Error' },
+}
+
+function ChatbotPulse() {
+  // Four outer dots arranged on the corners of a horizontal trapezoid
+  // (wider top, narrower bottom) all linked by spokes to a brighter
+  // centre dot — small "chatbot icon" cue that still reads at body-text
+  // size. Each outer dot pulses on a staggered delay so the constellation
+  // visibly breathes even when sitting next to a static label.
+  return (
+    <svg
+      className="chatbot-pulse"
+      width="22"
+      height="14"
+      viewBox="0 0 22 14"
+      aria-hidden="true"
+    >
+      <line className="chatbot-pulse-spoke" x1="3"  y1="3"  x2="11" y2="7" />
+      <line className="chatbot-pulse-spoke" x1="19" y1="3"  x2="11" y2="7" />
+      <line className="chatbot-pulse-spoke" x1="6"  y1="11" x2="11" y2="7" />
+      <line className="chatbot-pulse-spoke" x1="16" y1="11" x2="11" y2="7" />
+      <circle className="chatbot-pulse-dot" cx="3"  cy="3"  r="1.6" style={{ animationDelay: '0s' }} />
+      <circle className="chatbot-pulse-dot" cx="19" cy="3"  r="1.6" style={{ animationDelay: '0.15s' }} />
+      <circle className="chatbot-pulse-dot" cx="6"  cy="11" r="1.6" style={{ animationDelay: '0.3s' }} />
+      <circle className="chatbot-pulse-dot" cx="16" cy="11" r="1.6" style={{ animationDelay: '0.45s' }} />
+      <circle className="chatbot-pulse-core" cx="11" cy="7" r="2" />
+    </svg>
+  )
+}
+
+function LlmStatusPopup({ status, isStreaming }) {
+  const stage = status?.stage || 'idle'
+  const view = STATUS_VIEW[stage] || STATUS_VIEW.idle
+  const { Icon, label } = view
+  const active = isStreaming && stage !== 'idle' && stage !== 'error'
+  return (
+    <div className={`llm-status-popup stage-${stage} ${active ? 'is-active' : 'is-quiet'}`}>
+      <Icon size={14} className="llm-status-icon" />
+      <span className="llm-status-label">
+        {label}
+        {status?.detail ? <span className="llm-status-detail"> · {status.detail}</span> : null}
+      </span>
+      {active && <ChatbotPulse />}
+    </div>
+  )
+}
 
 function CircularProgress({ progress, size = 32, strokeWidth = 3 }) {
   const radius = (size - strokeWidth) / 2
@@ -57,6 +116,8 @@ export default function ChatInput({
   uploadProgress,
   conversationStats,
   lastResponseStats,
+  llmStatus,
+  isStreaming,
 }) {
   const textareaRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -89,11 +150,23 @@ export default function ChatInput({
   return (
     <div className="input-area">
       <div className="input-container">
-        {/* Upload progress chip */}
+        {/* Floating LLM response status — visible just above the chat input
+            so it stays in view even when the message list scrolls. */}
+        <LlmStatusPopup status={llmStatus} isStreaming={isStreaming} />
+        {/* Upload progress chip: shows current stage (uploading vs embedding) and % */}
         {uploadProgress && (
-          <div className="upload-progress-chip">
-            <CircularProgress progress={uploadProgress.progress} />
-            <span className="upload-progress-chip-name">{uploadProgress.filename}</span>
+          <div className={`upload-progress-chip stage-${uploadProgress.stage || 'uploading'}`}>
+            <CircularProgress progress={uploadProgress.percent || 0} />
+            <div className="upload-progress-chip-text">
+              <span className="upload-progress-chip-name">{uploadProgress.filename}</span>
+              <span className="upload-progress-chip-stage">
+                {uploadProgress.stage === 'embedding'
+                  ? 'Embedding into vector store…'
+                  : uploadProgress.stage === 'error'
+                  ? 'Failed'
+                  : 'Uploading…'}
+              </span>
+            </div>
           </div>
         )}
         {selectedFiles.length > 0 && (

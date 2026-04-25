@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 from typing import AsyncIterator
 
 import httpx
@@ -11,6 +12,9 @@ from . import (
 )
 
 logger = logging.getLogger(__name__)
+
+# How long to trust a cached /api/tags response before refetching.
+_REMOTE_MODEL_CACHE_TTL_SECONDS = 60
 
 
 @register_provider("ollama")
@@ -29,6 +33,11 @@ class OllamaProvider(BaseLLMProvider):
         self._headers = {}
         if api_key and not api_key.startswith("${"):
             self._headers["Authorization"] = f"Bearer {api_key}"
+        # Remote-model probe cache. ``None`` means "no successful probe
+        # yet" — distinct from an empty set, which means "the server
+        # genuinely has no models".
+        self._remote_models_cache: set[str] | None = None
+        self._remote_models_cache_ts: float = 0.0
 
     def is_available(self) -> bool:
         """Check if Ollama server is reachable."""
@@ -58,6 +67,32 @@ class OllamaProvider(BaseLLMProvider):
             pass
         return []
 
+    async def list_remote_models(self) -> set[str] | None:
+        """Probe ``GET /api/tags`` for the set of models the Ollama server
+        actually has available. Cached for ~60s to avoid hammering the
+        endpoint on every model-list refresh. Returns ``None`` if the
+        probe fails and no prior result is cached."""
+        now = time.monotonic()
+        if (
+            self._remote_models_cache is not None
+            and now - self._remote_models_cache_ts < _REMOTE_MODEL_CACHE_TTL_SECONDS
+        ):
+            return self._remote_models_cache
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                resp = await client.get(
+                    f"{self.base_url}/api/tags", headers=self._headers
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    models = {m.get("name") for m in data.get("models", []) if m.get("name")}
+                    self._remote_models_cache = models
+                    self._remote_models_cache_ts = now
+                    return models
+        except Exception as e:
+            logger.debug("Ollama /api/tags probe failed: %s", e)
+        return self._remote_models_cache  # may be None if never succeeded
+
     def _build_messages(self, messages, system_prompt="") -> list[dict]:
         result = []
         if system_prompt:
@@ -79,6 +114,22 @@ class OllamaProvider(BaseLLMProvider):
             for t in tools
         ]
 
+    def _think_param(self, request: ChatRequest):
+        """Translate the generic thinking config into Ollama's ``think`` field.
+
+        Returns one of:
+          None   — model is non-thinking; field is omitted entirely
+          True   — boolean thinking (e.g. deepseek-r1, qwen3-thinking)
+          "low" / "medium" / "high" — level-based (e.g. gpt-oss)
+        """
+        cfg = request.thinking
+        if not cfg or not cfg.get("enabled"):
+            return None
+        level = cfg.get("level")
+        if level in ("low", "medium", "high"):
+            return level
+        return True
+
     async def chat(self, request: ChatRequest) -> AsyncIterator[StreamChunk]:
         payload = {
             "model": request.model,
@@ -91,6 +142,16 @@ class OllamaProvider(BaseLLMProvider):
         }
         if request.tools:
             payload["tools"] = self._convert_tools(request.tools)
+
+        # Only set ``think`` when the model is configured as a thinking
+        # model — otherwise non-thinking models are unaffected.
+        think = self._think_param(request)
+        if think is not None:
+            payload["think"] = think
+
+        # Track whether we're currently inside a streamed thinking section
+        # so we can wrap it in <think>…</think> tags for the frontend.
+        in_thinking = False
 
         try:
             async with httpx.AsyncClient(timeout=120) as client:
@@ -115,11 +176,29 @@ class OllamaProvider(BaseLLMProvider):
                                     ),
                                 })
 
+                        # Ollama emits thinking output in ``message.thinking``
+                        # separately from ``message.content``. Bracket it
+                        # with the same <think> tags the frontend already
+                        # parses so the UI doesn't need provider-specific
+                        # logic.
+                        thinking_delta = msg.get("thinking", "")
+                        if thinking_delta:
+                            if not in_thinking:
+                                yield StreamChunk(content="<think>")
+                                in_thinking = True
+                            yield StreamChunk(content=thinking_delta)
+
                         content = msg.get("content", "")
                         if content:
+                            if in_thinking:
+                                yield StreamChunk(content="</think>")
+                                in_thinking = False
                             yield StreamChunk(content=content)
 
                         if data.get("done", False):
+                            if in_thinking:
+                                yield StreamChunk(content="</think>")
+                                in_thinking = False
                             usage_data = None
                             prompt_tokens = data.get("prompt_eval_count", 0)
                             completion_tokens = data.get("eval_count", 0)
@@ -131,12 +210,16 @@ class OllamaProvider(BaseLLMProvider):
                                 }
                             yield StreamChunk(done=True, usage=usage_data)
         except httpx.ConnectError:
+            if in_thinking:
+                yield StreamChunk(content="</think>")
             yield StreamChunk(
                 content="Cannot connect to Ollama. Ensure it is running.",
                 done=True,
             )
         except Exception as e:
             logger.error(f"Ollama error: {e}")
+            if in_thinking:
+                yield StreamChunk(content="</think>")
             yield StreamChunk(content=f"Error: {e}", done=True)
 
     async def chat_sync(self, request: ChatRequest) -> str:

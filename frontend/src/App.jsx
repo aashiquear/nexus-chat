@@ -8,6 +8,7 @@ import SplashScreen from './components/SplashScreen'
 import { useChat } from './hooks/useChat'
 import {
   fetchModels, fetchTools, fetchFiles, uploadFile, deleteFile,
+  fetchUploadProgress,
   fetchMCPServers, reconnectMCPServer,
   fetchConversations, fetchConversation, saveConversation, deleteConversation,
 } from './hooks/api'
@@ -40,6 +41,10 @@ export default function App() {
   const [isTyping, setIsTyping] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
+  // LLM response status — drives the floating pop-up above the chat input.
+  // Shape: { stage: 'initiated'|'thinking'|'responding'|'tool_calling'|'tool_executing'|'idle'|'error', detail?: string }
+  const [llmStatus, setLlmStatus] = useState({ stage: 'idle' })
+
   // Conversation state
   const [conversations, setConversations] = useState([])
   const [activeConversationId, setActiveConversationId] = useState(null)
@@ -49,7 +54,8 @@ export default function App() {
   const [canvasWidth, setCanvasWidth] = useState(null) // null = auto-calculate initial
   const isDraggingRef = useRef(false)
 
-  // Upload progress state: { filename, progress (0-100) } or null
+  // Upload progress state: { filename, stage, percent (0-100) } or null
+  // Stages: 'uploading' (bytes -> server) then 'embedding' (server -> vector store)
   const [uploadProgress, setUploadProgress] = useState(null)
 
   // Token usage tracking: array of { prompt_tokens, completion_tokens, total_tokens } per response
@@ -62,6 +68,7 @@ export default function App() {
   const chatEndRef = useRef(null)
   const chatAreaRef = useRef(null)
   const streamBufferRef = useRef('')
+  const responseStartRef = useRef(null)
   const userScrolledRef = useRef(false)
   const { connect, sendMessage, isConnected, isStreaming } = useChat()
 
@@ -83,9 +90,13 @@ export default function App() {
       setMcpServers(mcp)
       setConversations(convos)
 
-      // Default to first available model
-      const available = m.find((x) => x.available)
-      if (available) setSelectedModel(available.id)
+      // Default-select a model that is both provider-configured *and*
+      // confirmed on the remote (when probe info is available). Fall
+      // back to any configured model if no probe data was returned.
+      const isUsable = (x) =>
+        x.available && (x.remote_available === null || x.remote_available === undefined || x.remote_available)
+      const preferred = m.find(isUsable) || m.find((x) => x.available)
+      if (preferred) setSelectedModel(preferred.id)
     } catch (err) {
       console.error('Failed to load data:', err)
     }
@@ -146,10 +157,42 @@ export default function App() {
   // Upload
   const handleUpload = async (file) => {
     try {
-      setUploadProgress({ filename: file.name, progress: 0 })
-      await uploadFile(file, (progress) => {
-        setUploadProgress({ filename: file.name, progress })
+      // Stage 1: bytes leaving the browser
+      setUploadProgress({ filename: file.name, stage: 'uploading', percent: 0 })
+      await uploadFile(file, (percent) => {
+        setUploadProgress({ filename: file.name, stage: 'uploading', percent })
       })
+
+      // Stage 2: server-side embedding (chunks → vector store).
+      // Backend returns immediately; poll for embedding progress.
+      setUploadProgress({ filename: file.name, stage: 'embedding', percent: 0 })
+
+      let done = false
+      let attempts = 0
+      while (!done && attempts < 600) {
+        attempts += 1
+        const progress = await fetchUploadProgress(file.name)
+        if (!progress || progress.stage === 'unknown') {
+          // Backend hasn't recorded progress yet — keep polling briefly
+          await new Promise((r) => setTimeout(r, 250))
+          continue
+        }
+        const stage = progress.stage === 'complete' ? 'embedding' : progress.stage
+        setUploadProgress({
+          filename: file.name,
+          stage: stage === 'reading' || stage === 'chunking' || stage === 'queued'
+            ? 'embedding'
+            : stage,
+          percent: progress.percent || 0,
+          subStage: progress.stage,
+        })
+        if (progress.stage === 'complete' || progress.stage === 'error') {
+          done = true
+          break
+        }
+        await new Promise((r) => setTimeout(r, 350))
+      }
+
       setUploadProgress(null)
       const updatedFiles = await fetchFiles()
       setFiles(updatedFiles)
@@ -338,7 +381,9 @@ export default function App() {
     setMessages(newMessages)
     setInputValue('')
     setIsTyping(true)
+    setLlmStatus({ stage: 'initiated' })
     streamBufferRef.current = ''
+    responseStartRef.current = Date.now()
     userScrolledRef.current = false  // Reset scroll on new message
 
     // Build message history for the API
@@ -363,6 +408,14 @@ export default function App() {
       },
       async (event) => {
         switch (event.type) {
+          case 'status':
+            // Backend-emitted lifecycle marker (e.g. "initiated"). The
+            // remaining stages are inferred from text/tool events below.
+            if (event.stage) {
+              setLlmStatus({ stage: event.stage })
+            }
+            break
+
           case 'text':
             streamBufferRef.current += event.content
             setMessages((prev) => {
@@ -374,6 +427,7 @@ export default function App() {
                   content: streamBufferRef.current,
                   toolCalls: [...toolCalls],
                   toolResults: [...toolResults],
+                  startedAt: updated[lastIdx].startedAt ?? responseStartRef.current,
                 }
               } else {
                 updated.push({
@@ -381,14 +435,26 @@ export default function App() {
                   content: streamBufferRef.current,
                   toolCalls: [...toolCalls],
                   toolResults: [...toolResults],
+                  startedAt: responseStartRef.current,
                 })
               }
               return updated
             })
             setIsTyping(false)
+            // A <think>…</think> block that hasn't closed yet means the
+            // model is still mid-reasoning. Anything else counts as the
+            // visible response.
+            {
+              const buf = streamBufferRef.current
+              const lastOpen = Math.max(buf.lastIndexOf('<think>'), buf.lastIndexOf('<thinking>'))
+              const lastClose = Math.max(buf.lastIndexOf('</think>'), buf.lastIndexOf('</thinking>'))
+              const inThink = lastOpen > lastClose
+              setLlmStatus({ stage: inThink ? 'thinking' : 'responding' })
+            }
             break
 
           case 'tool_call':
+            setLlmStatus({ stage: 'tool_calling', detail: event.name })
             toolCalls.push({
               name: event.name,
               arguments: event.arguments,
@@ -400,6 +466,7 @@ export default function App() {
                 updated[lastIdx] = {
                   ...updated[lastIdx],
                   toolCalls: [...toolCalls],
+                  startedAt: updated[lastIdx].startedAt ?? responseStartRef.current,
                 }
               } else {
                 updated.push({
@@ -407,6 +474,7 @@ export default function App() {
                   content: '',
                   toolCalls: [...toolCalls],
                   toolResults: [],
+                  startedAt: responseStartRef.current,
                 })
               }
               return updated
@@ -414,6 +482,7 @@ export default function App() {
             break
 
           case 'tool_result':
+            setLlmStatus({ stage: 'tool_executing', detail: event.name })
             toolResults.push({
               name: event.name,
               result: event.result,
@@ -429,7 +498,13 @@ export default function App() {
               }
               return updated
             })
-            streamBufferRef.current = ''
+            // Note: do NOT reset streamBufferRef here. The agentic loop
+            // sends another round of streamed text after this tool call,
+            // and that text needs to *append* to the prior round (whose
+            // thinking block we want to keep visible). Resetting would
+            // overwrite the message content and erase that earlier
+            // thinking. The buffer is reset at the start of each new
+            // user turn (in handleSend) instead.
 
             // Auto-open canvas panel for graph plots
             try {
@@ -452,6 +527,27 @@ export default function App() {
 
           case 'done':
             setIsTyping(false)
+            setLlmStatus({ stage: 'idle' })
+            // Freeze the response timer on the last assistant message.
+            {
+              const start = responseStartRef.current
+              if (start) {
+                const finalMs = Date.now() - start
+                setMessages((prev) => {
+                  const updated = [...prev]
+                  const lastIdx = updated.length - 1
+                  if (lastIdx >= 0 && updated[lastIdx].role === 'assistant') {
+                    updated[lastIdx] = {
+                      ...updated[lastIdx],
+                      durationMs: finalMs,
+                      startedAt: updated[lastIdx].startedAt ?? start,
+                    }
+                  }
+                  return updated
+                })
+              }
+              responseStartRef.current = null
+            }
             // Track token usage if provided
             if (event.usage) {
               setTokenUsageHistory((prev) => {
@@ -489,6 +585,8 @@ export default function App() {
 
           case 'error':
             setIsTyping(false)
+            setLlmStatus({ stage: 'error', detail: event.content })
+            responseStartRef.current = null
             setMessages((prev) => [
               ...prev,
               {
@@ -512,6 +610,7 @@ export default function App() {
     setTokenUsageHistory([])
     tokenUsageRef.current = []
     setLastResponseStats(null)
+    setLlmStatus({ stage: 'idle' })
   }
 
   return (
@@ -604,6 +703,8 @@ export default function App() {
           uploadProgress={uploadProgress}
           conversationStats={conversationStats}
           lastResponseStats={lastResponseStats}
+          llmStatus={llmStatus}
+          isStreaming={isStreaming}
         />
       </div>
 

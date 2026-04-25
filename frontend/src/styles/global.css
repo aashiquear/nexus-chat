@@ -236,6 +236,49 @@ body {
   margin-top: 1px;
 }
 
+/* Constrain text column so long descriptions don't push the row layout */
+.toggle-text {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Collapsible description: single-line summary by default, expands on click. */
+.tool-desc-collapsible {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.tool-desc-collapsible .tool-desc-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-desc-collapsible.expanded .tool-desc-text {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.tool-desc-toggle {
+  background: none;
+  border: none;
+  padding: 0 2px;
+  margin: 0;
+  font: inherit;
+  font-size: 11px;
+  color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.tool-desc-toggle:hover {
+  text-decoration: underline;
+}
+
 .toggle-icon {
   color: var(--text-tertiary);
   flex-shrink: 0;
@@ -789,6 +832,86 @@ body {
   display: block;
 }
 
+/* ---- Thinking-Model Reasoning Block ---- */
+/* Renders <think>…</think> output from reasoning models in a muted,
+   collapsible box that auto-collapses once the thought is sealed off. */
+.thinking-block {
+  margin: 4px 0 8px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.thinking-block.thinking-active {
+  border-style: solid;
+  border-color: var(--accent-border);
+  background: var(--accent-subtle);
+}
+
+.thinking-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.thinking-header:hover {
+  background: var(--bg-panel-hover);
+}
+
+.thinking-chevron {
+  display: flex;
+  align-items: center;
+  opacity: 0.6;
+}
+
+.thinking-label {
+  letter-spacing: 0.01em;
+}
+
+.thinking-pulse {
+  animation: thinkingPulse 1.4s ease-in-out infinite;
+  color: var(--accent);
+}
+
+@keyframes thinkingPulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+.thinking-body {
+  padding: 8px 12px 10px;
+  border-top: 1px solid var(--border-light);
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+  font-style: italic;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.55;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.thinking-cursor {
+  display: inline-block;
+  margin-left: 2px;
+  color: var(--accent);
+  animation: thinkingCursor 1s steps(1) infinite;
+}
+
+@keyframes thinkingCursor {
+  50% { opacity: 0; }
+}
+
 /* ---- Collapsible Tool Reasoning Dropdowns ---- */
 .tool-reasoning-group {
   margin: 8px 0 4px;
@@ -1077,12 +1200,38 @@ body {
   background: var(--bg-panel-hover);
 }
 
-/* Typing indicator */
+/* Typing indicator — five connecting dots with a sliding link line */
 .typing-indicator {
-  display: flex;
-  gap: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding-left: 34px;
   margin-top: 4px;
+}
+
+.typing-indicator-connected {
+  position: relative;
+  padding-left: 34px;
+  padding-right: 12px;
+  height: 14px;
+}
+
+.typing-indicator-connected .typing-link {
+  position: absolute;
+  left: 38px;
+  right: 16px;
+  top: 50%;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--accent) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: typingLinkSlide 1.6s linear infinite;
+  opacity: 0.55;
 }
 
 .typing-dot {
@@ -1093,12 +1242,196 @@ body {
   animation: typingBounce 1.2s infinite;
 }
 
-.typing-dot:nth-child(2) { animation-delay: 0.2s; }
-.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+.typing-indicator-connected .typing-dot {
+  position: relative;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--bg-primary);
+  animation: typingPulseDot 1.4s ease-in-out infinite;
+}
+
+.typing-indicator:not(.typing-indicator-connected) .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-indicator:not(.typing-indicator-connected) .typing-dot:nth-child(3) { animation-delay: 0.4s; }
 
 @keyframes typingBounce {
   0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
   30% { transform: translateY(-4px); opacity: 1; }
+}
+
+@keyframes typingPulseDot {
+  0%, 100% { transform: scale(0.7); opacity: 0.45; }
+  50%      { transform: scale(1.1); opacity: 1; }
+}
+
+@keyframes typingLinkSlide {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ---- LLM response status pop-up (above the chat input) ---- */
+.llm-status-popup {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 auto 8px;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  font-size: 12px;
+  color: var(--text-secondary);
+  width: fit-content;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease,
+    background-color 0.25s ease,
+    border-color 0.25s ease,
+    color 0.25s ease;
+}
+
+/* Center the chip in the input column */
+.input-container > .llm-status-popup {
+  display: flex;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.llm-status-popup.is-active {
+  background: var(--accent-subtle);
+  border-color: var(--accent-border);
+  color: var(--accent);
+  animation: statusPopBob 2.2s ease-in-out infinite;
+}
+
+.llm-status-popup.is-quiet {
+  opacity: 0.7;
+}
+
+.llm-status-popup.stage-error {
+  background: rgba(184, 84, 80, 0.08);
+  border-color: rgba(184, 84, 80, 0.3);
+  color: var(--error);
+}
+
+.llm-status-popup .llm-status-icon {
+  flex-shrink: 0;
+}
+
+.llm-status-popup.is-active .llm-status-icon {
+  animation: statusIconPulse 1.6s ease-in-out infinite;
+}
+
+.llm-status-popup .llm-status-label {
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.llm-status-popup .llm-status-detail {
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+
+.llm-status-popup.is-active .llm-status-detail {
+  color: var(--accent-light);
+}
+
+@keyframes statusPopBob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-1px); }
+}
+
+@keyframes statusIconPulse {
+  0%, 100% { transform: scale(1);   opacity: 0.85; }
+  50%      { transform: scale(1.15); opacity: 1; }
+}
+
+/* ---- Chatbot pulse: trapezoid of 4 dots + bright centre, used in
+       the LLM status pop-up. Inherits currentColor from the chip so it
+       matches the active accent palette automatically. ---- */
+.chatbot-pulse {
+  flex-shrink: 0;
+  vertical-align: middle;
+  overflow: visible;
+}
+
+.chatbot-pulse-spoke {
+  stroke: currentColor;
+  stroke-width: 0.7;
+  opacity: 0.35;
+  animation: chatbotPulseSpoke 1.4s ease-in-out infinite;
+}
+
+.chatbot-pulse-dot {
+  fill: currentColor;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: chatbotPulseDot 1.4s ease-in-out infinite;
+}
+
+.chatbot-pulse-core {
+  fill: currentColor;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: chatbotPulseCore 1.6s ease-in-out infinite;
+}
+
+@keyframes chatbotPulseDot {
+  0%, 100% { opacity: 0.35; transform: scale(0.75); }
+  50%      { opacity: 1;    transform: scale(1.15); }
+}
+
+@keyframes chatbotPulseCore {
+  0%, 100% { opacity: 0.85; transform: scale(0.92); }
+  50%      { opacity: 1;    transform: scale(1.12); }
+}
+
+@keyframes chatbotPulseSpoke {
+  0%, 100% { opacity: 0.2; }
+  50%      { opacity: 0.55; }
+}
+
+/* ---- Response timer chip (below each assistant message) ---- */
+.response-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 6px 0 0 34px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  width: fit-content;
+}
+
+.response-timer.is-live {
+  color: var(--accent);
+  background: var(--accent-subtle);
+  border-color: var(--accent-border);
+  animation: responseTimerLivePulse 1.6s ease-in-out infinite;
+}
+
+.response-timer-value {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.response-timer-tag {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.7;
+}
+
+@keyframes responseTimerLivePulse {
+  0%, 100% { opacity: 0.85; }
+  50%      { opacity: 1; }
 }
 
 /* ---- Input Area ---- */
@@ -1213,6 +1546,12 @@ body {
   animation: fadeIn 0.25s ease;
 }
 
+.upload-progress-chip-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 .upload-progress-chip-name {
   font-size: 12px;
   font-weight: 500;
@@ -1220,7 +1559,27 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 200px;
+  max-width: 240px;
+}
+
+.upload-progress-chip-stage {
+  font-size: 10.5px;
+  color: var(--text-tertiary);
+  margin-top: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 240px;
+}
+
+/* Distinct hint for the embedding stage. */
+.upload-progress-chip.stage-embedding {
+  background: rgba(90, 122, 138, 0.08);
+  border-color: rgba(90, 122, 138, 0.25);
+}
+
+.upload-progress-chip.stage-embedding .upload-progress-chip-name {
+  color: var(--info);
 }
 
 .circular-progress {
@@ -1435,6 +1794,11 @@ body {
   background: var(--accent);
   border-radius: var(--radius-full);
   transition: width 0.2s ease;
+}
+
+/* Embedding stage uses a different hue so users can tell the two phases apart. */
+.upload-progress-bar-fill.embedding {
+  background: linear-gradient(90deg, var(--accent) 0%, var(--info) 100%);
 }
 
 /* ---- Canvas Resize Divider ---- */

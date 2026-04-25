@@ -40,6 +40,13 @@ class ChatRequest:
     temperature: float = 0.7
     stream: bool = True
     system_prompt: str = ""
+    # Per-model "thinking" / "reasoning" configuration. None means the
+    # model is non-thinking and providers must not send any thinking
+    # parameters. Recognized fields (provider-specific subset applies):
+    #   enabled: bool       — turn thinking on
+    #   level:   str        — "low" | "medium" | "high" (Ollama, OpenAI)
+    #   budget_tokens: int  — Anthropic extended-thinking budget
+    thinking: dict | None = None
 
 
 class BaseLLMProvider(ABC):
@@ -68,6 +75,23 @@ class BaseLLMProvider(ABC):
     def is_available(self) -> bool:
         """Check if the provider is properly configured."""
         return True
+
+    async def list_remote_models(self) -> set[str] | None:
+        """Return the set of model IDs the remote server actually offers.
+
+        Distinguish three cases:
+          - ``None``     — no probe possible (provider not configured,
+                           network failed, no implementation). The UI
+                           must treat every configured model as
+                           "unknown" availability and not grey them out.
+          - ``set()``    — probe succeeded but the server has no models.
+          - ``{...}``    — probe succeeded; only IDs in this set are
+                           confirmed available.
+
+        Providers that can probe their backend (Ollama, OpenAI,
+        Anthropic) override this with a cached lookup.
+        """
+        return None
 
 
 # --- Provider Registry ---

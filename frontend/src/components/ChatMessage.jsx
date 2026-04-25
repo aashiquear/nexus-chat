@@ -1,9 +1,124 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import {
   User, Bot, Wrench, CheckCircle2, ChevronDown, ChevronRight,
   BarChart3, Image as ImageIcon, Eye, Copy, Check as CheckIcon,
+  Brain, Timer,
 } from 'lucide-react'
 import LazyPlot from './LazyPlot'
+
+// Format an elapsed millisecond count for the response-duration chip.
+// Sub-second values use one decimal so a snappy reply still shows
+// motion ("0.4s"); longer ones break into m/s ("1m 12s").
+function formatDuration(ms) {
+  if (ms == null) return ''
+  const sec = ms / 1000
+  if (sec < 1) return `${sec.toFixed(1)}s`
+  if (sec < 60) return `${sec.toFixed(sec < 10 ? 1 : 0)}s`
+  const m = Math.floor(sec / 60)
+  const s = Math.floor(sec % 60)
+  return `${m}m ${s.toString().padStart(2, '0')}s`
+}
+
+function ResponseTimer({ startedAt, durationMs }) {
+  // Live tick while streaming; freeze on the recorded final duration once
+  // the "done" event lands. Both branches share the same chip styling so
+  // the transition is invisible.
+  const [now, setNow] = useState(() => Date.now())
+  const isDone = durationMs != null
+
+  useEffect(() => {
+    if (isDone || !startedAt) return
+    const id = setInterval(() => setNow(Date.now()), 100)
+    return () => clearInterval(id)
+  }, [isDone, startedAt])
+
+  if (!startedAt && !isDone) return null
+  const elapsed = isDone ? durationMs : Math.max(0, now - startedAt)
+
+  return (
+    <div className={`response-timer ${isDone ? 'is-final' : 'is-live'}`}
+         title={isDone ? 'Total response time' : 'Elapsed response time'}>
+      <Timer size={11} />
+      <span className="response-timer-value">{formatDuration(elapsed)}</span>
+      {!isDone && <span className="response-timer-tag">elapsed</span>}
+    </div>
+  )
+}
+
+// Some models (Gemma "thinking" variants, DeepSeek-R1, Qwen-thinking,
+// Anthropic extended thinking, etc.) emit their reasoning inside
+// <think>…</think> or <thinking>…</thinking>. A single assistant turn
+// may contain *multiple* thinking blocks — e.g. when the agentic loop
+// runs ``think → tool call → tool result → think → final answer`` —
+// so we parse the streamed content into an ordered list of segments
+// and render each thinking block in its own collapsible box. This
+// keeps every thought process visible even after additional rounds.
+function parseMessageSegments(text) {
+  if (!text) return []
+  const segments = []
+  // Two alternatives: a fully-closed <think>…</think> block, or an
+  // unclosed <think>… that runs to the end of the streamed buffer
+  // (the in-progress case).
+  const re = /<(think(?:ing)?)>([\s\S]*?)<\/\1>|<(think(?:ing)?)>([\s\S]*)$/gi
+  let cursor = 0
+  let match
+  while ((match = re.exec(text)) !== null) {
+    if (match.index > cursor) {
+      segments.push({ type: 'text', text: text.slice(cursor, match.index) })
+    }
+    if (match[1] !== undefined) {
+      segments.push({ type: 'thinking', text: match[2], complete: true })
+    } else {
+      segments.push({ type: 'thinking', text: match[4], complete: false })
+    }
+    cursor = match.index + match[0].length
+  }
+  if (cursor < text.length) {
+    segments.push({ type: 'text', text: text.slice(cursor) })
+  }
+  return segments
+}
+
+function ThinkingBlock({ text, complete }) {
+  // While streaming, leave the thought open so users see it tick along.
+  // Once complete, collapse it to a clickable dropdown (closed by default).
+  const [isOpen, setIsOpen] = useState(!complete)
+
+  // Auto-collapse once the thought is sealed off, but only on the
+  // transition (don't fight the user if they re-open it).
+  const prevCompleteRef = React.useRef(complete)
+  React.useEffect(() => {
+    if (!prevCompleteRef.current && complete) setIsOpen(false)
+    prevCompleteRef.current = complete
+  }, [complete])
+
+  const trimmed = (text || '').trim()
+  if (!trimmed) return null
+
+  return (
+    <div className={`thinking-block ${complete ? 'thinking-complete' : 'thinking-active'}`}>
+      <button
+        className="thinking-header"
+        onClick={() => setIsOpen((v) => !v)}
+        type="button"
+      >
+        <span className="thinking-chevron">
+          {isOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+        </span>
+        <Brain size={13} className={complete ? '' : 'thinking-pulse'} />
+        <span className="thinking-label">
+          {complete ? 'Thought process' : 'Thinking…'}
+        </span>
+      </button>
+      {isOpen && (
+        <div className="thinking-body">
+          {trimmed}
+          {!complete && <span className="thinking-cursor">▍</span>}
+        </div>
+      )}
+    </div>
+  )
+}
 
 // Copy-to-clipboard code block wrapper
 function CodeBlock({ code, lang }) {
@@ -434,6 +549,12 @@ export default function ChatMessage({ message, onOpenCanvas }) {
     } catch (_e) { return false }
   })
 
+  // For assistant turns, walk the streamed buffer as an ordered list of
+  // segments so every <think>…</think> block (there can be several per
+  // turn) renders in its own collapsible box, interleaved with the text
+  // it was emitted alongside. User messages skip this entirely.
+  const segments = isUser ? null : parseMessageSegments(message.content)
+
   return (
     <div className={`message ${isUser ? 'message-user' : ''}`}>
       <div className="message-header">
@@ -445,7 +566,26 @@ export default function ChatMessage({ message, onOpenCanvas }) {
         </span>
       </div>
       <div className="message-body">
-        {isUser ? <p>{message.content}</p> : renderContent(message.content)}
+        {isUser ? (
+          <p>{message.content}</p>
+        ) : (
+          segments.map((seg, i) => {
+            if (seg.type === 'thinking') {
+              return (
+                <ThinkingBlock
+                  key={`think-${i}`}
+                  text={seg.text}
+                  complete={seg.complete}
+                />
+              )
+            }
+            return (
+              <React.Fragment key={`text-${i}`}>
+                {renderContent(seg.text)}
+              </React.Fragment>
+            )
+          })
+        )}
 
         {/* Collapsible tool reasoning */}
         {toolPairs.length > 0 && (
@@ -623,6 +763,12 @@ export default function ChatMessage({ message, onOpenCanvas }) {
           return null
         })}
       </div>
+      {!isUser && (message.startedAt || message.durationMs != null) && (
+        <ResponseTimer
+          startedAt={message.startedAt}
+          durationMs={message.durationMs}
+        />
+      )}
     </div>
   )
 }
@@ -636,10 +782,11 @@ export function TypingIndicator() {
         </div>
         <span className="message-role">Assistant</span>
       </div>
-      <div className="typing-indicator">
-        <div className="typing-dot" />
-        <div className="typing-dot" />
-        <div className="typing-dot" />
+      <div className="typing-indicator typing-indicator-connected" aria-label="Assistant is responding">
+        <span className="typing-link" />
+        {[0, 1, 2, 3, 4].map((i) => (
+          <span key={i} className="typing-dot" style={{ animationDelay: `${i * 0.12}s` }} />
+        ))}
       </div>
     </div>
   )
