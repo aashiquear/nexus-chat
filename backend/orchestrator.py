@@ -55,17 +55,68 @@ class ChatOrchestrator:
             logger.info("RAG engine initialized")
 
     def get_available_models(self) -> list[dict]:
-        """Return all available models across providers."""
+        """Return all configured models across providers (sync, no probe)."""
         models = []
         for provider_name, provider in self._providers.items():
             for model in provider.list_models():
-                models.append({
-                    "id": model["id"],
-                    "name": model.get("name", model["id"]),
-                    "provider": provider_name,
-                    "available": provider.is_available(),
-                })
+                models.append(self._format_model_entry(provider_name, provider, model, None))
         return models
+
+    async def get_available_models_async(self) -> list[dict]:
+        """Same as :meth:`get_available_models` but additionally probes
+        each configured provider for its current remote model catalog
+        and marks each entry with ``remote_available``. Probes run in
+        parallel and any failure falls back to "no info" gracefully."""
+        import asyncio
+
+        active = list(self._providers.items())
+        # Probe every provider in parallel; on failure we fall back to
+        # an empty set ("no info"), in which case the UI shows the model
+        # without a remote-availability flag.
+        remote_lists = await asyncio.gather(
+            *[p.list_remote_models() for _, p in active],
+            return_exceptions=True,
+        )
+
+        result = []
+        for (provider_name, provider), remote in zip(active, remote_lists):
+            # Probe failures and "no implementation" both surface as
+            # None so the UI shows those models as available (not
+            # spuriously greyed out). An empty set, by contrast, means
+            # the probe succeeded but reported no models.
+            if isinstance(remote, Exception):
+                remote = None
+            elif not (remote is None or isinstance(remote, set)):
+                remote = None
+            for model in provider.list_models():
+                result.append(
+                    self._format_model_entry(provider_name, provider, model, remote)
+                )
+        return result
+
+    @staticmethod
+    def _format_model_entry(provider_name, provider, model, remote_models):
+        """Build the dict shape returned by /api/models for one model."""
+        mid = model["id"]
+        entry = {
+            "id": mid,
+            "name": model.get("name", mid),
+            "provider": provider_name,
+            "available": provider.is_available(),
+            "thinking": bool(
+                model.get("thinking")
+                or model.get("thinking_level")
+                or model.get("thinking_budget_tokens")
+            ),
+        }
+        # ``remote_available`` is None ("unknown") when the provider
+        # didn't report a catalog. The UI treats unknown as "available"
+        # so providers without a probe don't get falsely greyed out.
+        if remote_models is None:
+            entry["remote_available"] = None
+        else:
+            entry["remote_available"] = mid in remote_models
+        return entry
 
     async def init_mcp(self):
         """Initialize MCP server connections (must be awaited)."""

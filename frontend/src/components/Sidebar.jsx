@@ -220,11 +220,26 @@ export default function Sidebar({
           >
             {Object.entries(grouped).map(([provider, provModels]) => (
               <optgroup key={provider} label={provider.charAt(0).toUpperCase() + provider.slice(1)}>
-                {provModels.map((m) => (
-                  <option key={m.id} value={m.id} disabled={!m.available}>
-                    {m.name}{m.available ? '' : ' (not configured)'}
-                  </option>
-                ))}
+                {provModels.map((m) => {
+                  // remote_available === null  → no probe info, treat as available
+                  // remote_available === false → known not on the remote
+                  // remote_available === true  → confirmed on the remote
+                  const remoteUnknown = m.remote_available === null || m.remote_available === undefined
+                  const onRemote = remoteUnknown ? true : !!m.remote_available
+                  const usable = m.available && onRemote
+                  const suffix = !m.available
+                    ? ' (not configured)'
+                    : !onRemote
+                    ? ' • unavailable'
+                    : m.thinking
+                    ? ' • thinking'
+                    : ''
+                  return (
+                    <option key={m.id} value={m.id} disabled={!usable}>
+                      {usable ? '● ' : '○ '}{m.name}{suffix}
+                    </option>
+                  )
+                })}
               </optgroup>
             ))}
           </select>

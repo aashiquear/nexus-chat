@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 from typing import AsyncIterator
 
 from . import (
@@ -10,6 +11,8 @@ from . import (
 
 logger = logging.getLogger(__name__)
 
+_REMOTE_MODEL_CACHE_TTL_SECONDS = 60
+
 
 @register_provider("openai")
 class OpenAIProvider(BaseLLMProvider):
@@ -17,6 +20,8 @@ class OpenAIProvider(BaseLLMProvider):
     def __init__(self, config: dict):
         super().__init__(config)
         self._client = None
+        self._remote_models_cache: set[str] | None = None
+        self._remote_models_cache_ts: float = 0.0
 
     def _get_client(self):
         if self._client is None:
@@ -36,6 +41,30 @@ class OpenAIProvider(BaseLLMProvider):
 
     def list_models(self) -> list[dict]:
         return self.config.get("models", [])
+
+    async def list_remote_models(self) -> set[str] | None:
+        """Probe the OpenAI ``/v1/models`` endpoint for the set of model
+        IDs the configured API key has access to. Returns ``None`` when
+        no probe is possible (no API key) or the call fails before any
+        successful prior result was cached."""
+        client = self._get_client()
+        if client is None:
+            return None
+        now = time.monotonic()
+        if (
+            self._remote_models_cache is not None
+            and now - self._remote_models_cache_ts < _REMOTE_MODEL_CACHE_TTL_SECONDS
+        ):
+            return self._remote_models_cache
+        try:
+            resp = await client.models.list()
+            models = {m.id for m in resp.data}
+            self._remote_models_cache = models
+            self._remote_models_cache_ts = now
+            return models
+        except Exception as e:
+            logger.debug("OpenAI models.list probe failed: %s", e)
+            return self._remote_models_cache
 
     def _convert_tools(self, tools) -> list[dict]:
         return [

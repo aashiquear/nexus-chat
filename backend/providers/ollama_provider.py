@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 from typing import AsyncIterator
 
 import httpx
@@ -11,6 +12,9 @@ from . import (
 )
 
 logger = logging.getLogger(__name__)
+
+# How long to trust a cached /api/tags response before refetching.
+_REMOTE_MODEL_CACHE_TTL_SECONDS = 60
 
 
 @register_provider("ollama")
@@ -29,6 +33,11 @@ class OllamaProvider(BaseLLMProvider):
         self._headers = {}
         if api_key and not api_key.startswith("${"):
             self._headers["Authorization"] = f"Bearer {api_key}"
+        # Remote-model probe cache. ``None`` means "no successful probe
+        # yet" — distinct from an empty set, which means "the server
+        # genuinely has no models".
+        self._remote_models_cache: set[str] | None = None
+        self._remote_models_cache_ts: float = 0.0
 
     def is_available(self) -> bool:
         """Check if Ollama server is reachable."""
@@ -57,6 +66,32 @@ class OllamaProvider(BaseLLMProvider):
         except Exception:
             pass
         return []
+
+    async def list_remote_models(self) -> set[str] | None:
+        """Probe ``GET /api/tags`` for the set of models the Ollama server
+        actually has available. Cached for ~60s to avoid hammering the
+        endpoint on every model-list refresh. Returns ``None`` if the
+        probe fails and no prior result is cached."""
+        now = time.monotonic()
+        if (
+            self._remote_models_cache is not None
+            and now - self._remote_models_cache_ts < _REMOTE_MODEL_CACHE_TTL_SECONDS
+        ):
+            return self._remote_models_cache
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                resp = await client.get(
+                    f"{self.base_url}/api/tags", headers=self._headers
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    models = {m.get("name") for m in data.get("models", []) if m.get("name")}
+                    self._remote_models_cache = models
+                    self._remote_models_cache_ts = now
+                    return models
+        except Exception as e:
+            logger.debug("Ollama /api/tags probe failed: %s", e)
+        return self._remote_models_cache  # may be None if never succeeded
 
     def _build_messages(self, messages, system_prompt="") -> list[dict]:
         result = []

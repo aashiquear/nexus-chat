@@ -58,33 +58,48 @@ providers:
     # {low, medium, high}) to make Ollama emit the model's thought
     # process. Non-thinking models leave the field unset and are
     # unaffected — switching between the two just works.
+    #
+    # The Nexus sidebar greys out any model that isn't currently
+    # available on the connected Ollama server (i.e. not yet pulled
+    # locally, or not in your Ollama Cloud catalog), so it's safe to
+    # list aspirational tags below — they'll just be marked unavailable
+    # until the server actually has them.
     # ----
     models:
       # --- Cloud models (Ollama Cloud) ---
-      - id: "gemma4:31b-cloud"
-        name: "Gemma 4"
+      - id: "gemma4:latest-cloud"
+        name: "Gemma 4 (cloud)"
         max_tokens: 4096
         thinking: true
         thinking_level: "medium"
-      - id: "ministral-3:14b-cloud"
-        name: "Ministral 3"
-        max_tokens: 4096
       - id: "gpt-oss:120b-cloud"
-        name: "GPT-OSS"
+        name: "GPT-OSS (cloud)"
         max_tokens: 4096
         thinking: true
         thinking_level: "medium"
-      - id: "devstral-2:123b-cloud"
-        name: "Devstral 2"
+      - id: "qwen3-coder:480b-cloud"
+        name: "Qwen 3 Coder 480B (cloud)"
+        max_tokens: 8192
+      - id: "deepseek-r1:671b-cloud"
+        name: "DeepSeek-R1 671B (cloud)"
+        max_tokens: 8192
+        thinking: true
+
+      # --- Local models: general ---
+      - id: "gemma4:31b"
+        name: "Gemma 4 31B"
         max_tokens: 4096
-      # --- Local models ---
+        thinking: true
+        thinking_level: "medium"
+      - id: "ministral-3:14b"
+        name: "Ministral 3 14B"
+        max_tokens: 4096
+      - id: "devstral-2:123b"
+        name: "Devstral 2 123B"
+        max_tokens: 8192
       - id: "llama4:latest"
         name: "Llama 4"
         max_tokens: 4096
-      - id: "qwen3.5:27b"
-        name: "Qwen 3.5"
-        max_tokens: 4096
-        thinking: true
       - id: "qwen2.5:latest"
         name: "Qwen 2.5"
         max_tokens: 4096
@@ -97,6 +112,54 @@ providers:
       - id: "codellama"
         name: "Code Llama"
         max_tokens: 4096
+
+      # --- Local models: code generation (Claude-Opus-tier candidates) ---
+      # Thinking flag follows the model family. Tags marked "(check tag)"
+      # are names the user requested; if the Ollama registry uses a
+      # slightly different tag the sidebar will mark them unavailable
+      # rather than failing silently.
+      - id: "qwen3-coder:30b"
+        name: "Qwen 3 Coder 30B"
+        max_tokens: 8192
+      - id: "qwen3-coder-next"
+        name: "Qwen 3 Coder Next (check tag)"
+        max_tokens: 8192
+      - id: "qwen3.5:35b"
+        name: "Qwen 3.5 35B (check tag)"
+        max_tokens: 8192
+        thinking: true
+      - id: "qwen3.5-9b-claude-opus-distilled"
+        name: "Qwen 3.5 9B Claude-Opus distilled (check tag)"
+        max_tokens: 8192
+      - id: "qwen2.5-coder:32b"
+        name: "Qwen 2.5 Coder 32B"
+        max_tokens: 8192
+      - id: "deepseek-coder-v2:16b"
+        name: "DeepSeek Coder v2 16B"
+        max_tokens: 8192
+      - id: "deepseek-r1:32b"
+        name: "DeepSeek-R1 32B"
+        max_tokens: 8192
+        thinking: true
+      - id: "deepseek-r1:70b"
+        name: "DeepSeek-R1 70B"
+        max_tokens: 8192
+        thinking: true
+      - id: "qwq:32b"
+        name: "QwQ 32B (reasoning preview)"
+        max_tokens: 8192
+        thinking: true
+      - id: "minimax-m2.5"
+        name: "MiniMax M2.5 (check tag)"
+        max_tokens: 8192
+      - id: "glm-5"
+        name: "GLM-5 (check tag)"
+        max_tokens: 8192
+        thinking: true
+      - id: "glm-5.1"
+        name: "GLM-5.1 (check tag)"
+        max_tokens: 8192
+        thinking: true
 
 # ------------------------------------------------------------
 # Tools

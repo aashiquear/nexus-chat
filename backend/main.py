@@ -88,8 +88,14 @@ async def health():
 
 @app.get("/api/models")
 async def list_models():
-    """Return all available LLM models."""
-    return {"models": orchestrator.get_available_models()}
+    """Return all configured LLM models, annotated with whether each is
+    currently available on its provider's remote server (Ollama tags,
+    Anthropic ``/v1/models``, OpenAI ``/v1/models``).
+
+    Probe results are cached briefly per-provider so this endpoint stays
+    cheap to call from the frontend on demand.
+    """
+    return {"models": await orchestrator.get_available_models_async()}
 
 
 @app.get("/api/tools")

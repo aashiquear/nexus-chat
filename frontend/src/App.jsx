@@ -85,9 +85,13 @@ export default function App() {
       setMcpServers(mcp)
       setConversations(convos)
 
-      // Default to first available model
-      const available = m.find((x) => x.available)
-      if (available) setSelectedModel(available.id)
+      // Default-select a model that is both provider-configured *and*
+      // confirmed on the remote (when probe info is available). Fall
+      // back to any configured model if no probe data was returned.
+      const isUsable = (x) =>
+        x.available && (x.remote_available === null || x.remote_available === undefined || x.remote_available)
+      const preferred = m.find(isUsable) || m.find((x) => x.available)
+      if (preferred) setSelectedModel(preferred.id)
     } catch (err) {
       console.error('Failed to load data:', err)
     }

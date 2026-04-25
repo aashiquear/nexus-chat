@@ -76,6 +76,23 @@ class BaseLLMProvider(ABC):
         """Check if the provider is properly configured."""
         return True
 
+    async def list_remote_models(self) -> set[str] | None:
+        """Return the set of model IDs the remote server actually offers.
+
+        Distinguish three cases:
+          - ``None``     — no probe possible (provider not configured,
+                           network failed, no implementation). The UI
+                           must treat every configured model as
+                           "unknown" availability and not grey them out.
+          - ``set()``    — probe succeeded but the server has no models.
+          - ``{...}``    — probe succeeded; only IDs in this set are
+                           confirmed available.
+
+        Providers that can probe their backend (Ollama, OpenAI,
+        Anthropic) override this with a cached lookup.
+        """
+        return None
+
 
 # --- Provider Registry ---
 _providers: dict[str, type[BaseLLMProvider]] = {}
