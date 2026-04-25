@@ -40,6 +40,13 @@ class ChatRequest:
     temperature: float = 0.7
     stream: bool = True
     system_prompt: str = ""
+    # Per-model "thinking" / "reasoning" configuration. None means the
+    # model is non-thinking and providers must not send any thinking
+    # parameters. Recognized fields (provider-specific subset applies):
+    #   enabled: bool       — turn thinking on
+    #   level:   str        — "low" | "medium" | "high" (Ollama, OpenAI)
+    #   budget_tokens: int  — Anthropic extended-thinking budget
+    thinking: dict | None = None
 
 
 class BaseLLMProvider(ABC):

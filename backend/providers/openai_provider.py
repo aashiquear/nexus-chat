@@ -58,6 +58,20 @@ class OpenAIProvider(BaseLLMProvider):
             result.append({"role": msg.role, "content": msg.content})
         return result
 
+    def _reasoning_effort(self, request: ChatRequest) -> str | None:
+        """Map the generic thinking config to OpenAI ``reasoning_effort``.
+
+        Returns None for non-thinking models so the request stays unchanged.
+        """
+        cfg = request.thinking
+        if not cfg or not cfg.get("enabled"):
+            return None
+        level = cfg.get("level")
+        if level in ("minimal", "low", "medium", "high"):
+            return level
+        # ``thinking: true`` with no explicit level → default to medium.
+        return "medium"
+
     async def chat(self, request: ChatRequest) -> AsyncIterator[StreamChunk]:
         client = self._get_client()
         if not client:
@@ -67,11 +81,20 @@ class OpenAIProvider(BaseLLMProvider):
         kwargs = {
             "model": request.model,
             "messages": self._build_messages(request.messages, request.system_prompt),
-            "max_tokens": request.max_tokens,
-            "temperature": request.temperature,
             "stream": True,
             "stream_options": {"include_usage": True},
         }
+
+        effort = self._reasoning_effort(request)
+        if effort:
+            # Reasoning models reject ``temperature`` and use
+            # ``max_completion_tokens`` instead of ``max_tokens``.
+            kwargs["reasoning_effort"] = effort
+            kwargs["max_completion_tokens"] = request.max_tokens
+        else:
+            kwargs["max_tokens"] = request.max_tokens
+            kwargs["temperature"] = request.temperature
+
         if request.tools:
             kwargs["tools"] = self._convert_tools(request.tools)
 

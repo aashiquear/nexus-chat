@@ -107,6 +107,31 @@ class ChatOrchestrator:
                     return name, provider
         return None
 
+    def _resolve_thinking_config(self, provider: BaseLLMProvider, model_id: str) -> dict | None:
+        """Look up per-model thinking config so non-thinking models stay
+        untouched while thinking-capable models get their required params.
+
+        A model entry in settings.yaml may declare any of:
+          thinking: true | false        — toggle thinking
+          thinking_level: low|medium|high
+          thinking_budget_tokens: N     — Anthropic extended-thinking budget
+        """
+        for model in provider.list_models():
+            if model.get("id") != model_id:
+                continue
+            enabled = model.get("thinking")
+            level = model.get("thinking_level")
+            budget = model.get("thinking_budget_tokens")
+            if not enabled and not level and not budget:
+                return None
+            cfg: dict = {"enabled": bool(enabled) or bool(level) or bool(budget)}
+            if level:
+                cfg["level"] = level
+            if budget:
+                cfg["budget_tokens"] = int(budget)
+            return cfg
+        return None
+
     async def _execute_tool(self, tool_name: str, arguments: dict) -> str:
         """Execute a tool (built-in or MCP) and return its result."""
         # Check if it's an MCP tool (format: mcp:<server>:<name>)
@@ -214,12 +239,14 @@ class ChatOrchestrator:
         msg_objs = [Message(role=m["role"], content=m["content"]) for m in messages]
 
         # Build request
+        thinking_cfg = self._resolve_thinking_config(provider, model_id)
         request = ChatRequest(
             messages=msg_objs,
             model=model_id,
             tools=tool_defs,
             system_prompt=full_system,
             stream=True,
+            thinking=thinking_cfg,
         )
 
         # Agentic loop — up to 15 rounds on success, stops after 5 consecutive failures
