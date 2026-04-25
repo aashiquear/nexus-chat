@@ -229,6 +229,9 @@ rag:
 # File Upload
 # ------------------------------------------------------------
 uploads:
-  max_file_size_mb: 50
+  # 5 GiB — large enough for modern datasets. The upload endpoint streams
+  # the request body to disk in 1 MiB chunks, so memory stays bounded
+  # regardless of this value.
+  max_file_size_mb: 5120
   allowed_extensions: []  # Empty list = allow all file types
   upload_directory: "./data/uploads"

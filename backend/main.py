@@ -98,13 +98,18 @@ async def list_tools():
     return {"tools": orchestrator.get_available_tools()}
 
 
+UPLOAD_STREAM_CHUNK = 1024 * 1024  # 1 MiB per read — bounded memory
+
+
 @app.post("/api/upload")
 async def upload_file(file: UploadFile = File(...)):
     """Upload a file for RAG and tool use.
 
-    Returns as soon as the bytes hit disk; embedding runs asynchronously
-    so the client can poll ``/api/upload/progress/{filename}`` to track
-    the embedding stage separately from the byte-transfer stage.
+    The request body is streamed to disk in 1 MiB chunks so multi-GB
+    uploads don't sit in memory. Once bytes are on disk the response
+    returns immediately and embedding runs asynchronously; the client
+    polls ``/api/upload/progress/{filename}`` to track the embedding
+    stage separately from the byte-transfer stage.
     """
     upload_cfg = config.get("uploads", {})
     max_size = upload_cfg.get("max_file_size_mb", 50) * 1024 * 1024
@@ -115,14 +120,29 @@ async def upload_file(file: UploadFile = File(...)):
     if allowed and ext not in allowed:
         raise HTTPException(400, f"File type '{ext}' not allowed. Allowed: {allowed}")
 
-    # Save file
+    # Stream to disk in chunks; abort early if the size limit is exceeded.
     filepath = upload_dir / file.filename
-    content = await file.read()
-    if len(content) > max_size:
-        raise HTTPException(400, f"File too large. Max: {max_size // (1024*1024)}MB")
-
-    with open(filepath, "wb") as f:
-        f.write(content)
+    written = 0
+    try:
+        with open(filepath, "wb") as out:
+            while True:
+                chunk = await file.read(UPLOAD_STREAM_CHUNK)
+                if not chunk:
+                    break
+                written += len(chunk)
+                if written > max_size:
+                    out.close()
+                    try:
+                        filepath.unlink()
+                    except FileNotFoundError:
+                        pass
+                    raise HTTPException(
+                        400,
+                        f"File too large. Max: {max_size // (1024 * 1024)} MB",
+                    )
+                out.write(chunk)
+    finally:
+        await file.close()
 
     # Kick off embedding in the background so the upload response returns
     # immediately. The client polls /api/upload/progress to track it.
@@ -144,7 +164,7 @@ async def upload_file(file: UploadFile = File(...)):
 
     return {
         "filename": file.filename,
-        "size": len(content),
+        "size": written,
         "embedding_status": embedding_status,
     }
 
