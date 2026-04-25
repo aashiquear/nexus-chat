@@ -25,20 +25,72 @@ providers:
   anthropic:
     enabled: true
     api_key: "${ANTHROPIC_API_KEY}"  # Set via env var or paste key here
-    default_model: "claude-sonnet-4-20250514"
+    default_model: "claude-sonnet-4-6"
+    # The /v1/models probe will mark each entry as available or
+    # unavailable based on what the API key actually has access to.
     models:
-      - id: "claude-sonnet-4-20250514"
-        name: "Claude Sonnet 4"
+      # --- Latest Claude 4.x line ---
+      - id: "claude-opus-4-7"
+        name: "Claude Opus 4.7"
+        max_tokens: 8192
+      - id: "claude-opus-4-6"
+        name: "Claude Opus 4.6"
+        max_tokens: 8192
+      - id: "claude-sonnet-4-6"
+        name: "Claude Sonnet 4.6"
         max_tokens: 8192
       - id: "claude-haiku-4-5-20251001"
         name: "Claude Haiku 4.5"
+        max_tokens: 8192
+      # --- Older 4.x ---
+      - id: "claude-sonnet-4-20250514"
+        name: "Claude Sonnet 4 (May 2025)"
         max_tokens: 8192
 
   openai:
     enabled: true
     api_key: "${OPENAI_API_KEY}"
-    default_model: "gpt-4o"
+    default_model: "gpt-5"
+    # Reasoning models (gpt-5, o-series) consult ``thinking_level`` to
+    # set ``reasoning_effort`` on the API; non-reasoning models ignore
+    # the flag entirely.
     models:
+      # --- GPT-5 family (reasoning) ---
+      - id: "gpt-5"
+        name: "GPT-5"
+        max_tokens: 8192
+        thinking: true
+        thinking_level: "medium"
+      - id: "gpt-5-mini"
+        name: "GPT-5 Mini"
+        max_tokens: 8192
+        thinking: true
+        thinking_level: "low"
+      - id: "gpt-5-nano"
+        name: "GPT-5 Nano"
+        max_tokens: 4096
+        thinking: true
+        thinking_level: "minimal"
+      # --- o-series (reasoning) ---
+      - id: "o3"
+        name: "OpenAI o3"
+        max_tokens: 8192
+        thinking: true
+        thinking_level: "medium"
+      - id: "o3-mini"
+        name: "OpenAI o3-mini"
+        max_tokens: 8192
+        thinking: true
+        thinking_level: "medium"
+      - id: "o4-mini"
+        name: "OpenAI o4-mini"
+        max_tokens: 8192
+        thinking: true
+        thinking_level: "medium"
+      # --- 4.x family ---
+      - id: "gpt-4.1"
+        name: "GPT-4.1"
+        max_tokens: 8192
       - id: "gpt-4o"
         name: "GPT-4o"
         max_tokens: 4096
@@ -67,13 +119,13 @@ providers:
     # ----
     models:
       # --- Cloud models (Ollama Cloud) ---
-      - id: "gemma4:latest-cloud"
+      - id: "gemma4:latest"
         name: "Gemma 4 (cloud)"
         max_tokens: 4096
         thinking: true
         thinking_level: "medium"
       - id: "gpt-oss:120b-cloud"
-        name: "GPT-OSS (cloud)"
+        name: "GPT-OSS 120B (cloud)"
         max_tokens: 4096
         thinking: true
         thinking_level: "medium"
@@ -82,6 +134,13 @@ providers:
         max_tokens: 8192
       - id: "deepseek-r1:671b-cloud"
         name: "DeepSeek-R1 671B (cloud)"
+        max_tokens: 8192
+        thinking: true
+      - id: "minimax-m2.7:cloud"
+        name: "MiniMax M2.7 (cloud)"
+        max_tokens: 8192
+      - id: "glm-5.1:cloud"
+        name: "GLM-5.1 (cloud)"
         max_tokens: 8192
         thinking: true
 
@@ -100,6 +159,10 @@ providers:
       - id: "llama4:latest"
         name: "Llama 4"
         max_tokens: 4096
+      - id: "qwen3.6:latest"
+        name: "Qwen 3.6"
+        max_tokens: 8192
+        thinking: true
       - id: "qwen2.5:latest"
         name: "Qwen 2.5"
         max_tokens: 4096
@@ -114,22 +177,15 @@ providers:
         max_tokens: 4096
 
       # --- Local models: code generation (Claude-Opus-tier candidates) ---
-      # Thinking flag follows the model family. Tags marked "(check tag)"
-      # are names the user requested; if the Ollama registry uses a
-      # slightly different tag the sidebar will mark them unavailable
-      # rather than failing silently.
+      # Thinking flag follows the model family. Probe-confirmed tags only.
       - id: "qwen3-coder:30b"
         name: "Qwen 3 Coder 30B"
         max_tokens: 8192
-      - id: "qwen3-coder-next"
-        name: "Qwen 3 Coder Next (check tag)"
+      - id: "qwen3-coder-next:latest"
+        name: "Qwen 3 Coder Next"
         max_tokens: 8192
-      - id: "qwen3.5:35b"
-        name: "Qwen 3.5 35B (check tag)"
-        max_tokens: 8192
-        thinking: true
-      - id: "qwen3.5-9b-claude-opus-distilled"
-        name: "Qwen 3.5 9B Claude-Opus distilled (check tag)"
+      - id: "gag0/qwen35-opus-distil:latest"
+        name: "Qwen 3.5 Opus-distilled"
         max_tokens: 8192
       - id: "qwen2.5-coder:32b"
         name: "Qwen 2.5 Coder 32B"
@@ -147,17 +203,6 @@ providers:
         thinking: true
       - id: "qwq:32b"
         name: "QwQ 32B (reasoning preview)"
-        max_tokens: 8192
-        thinking: true
-      - id: "minimax-m2.5"
-        name: "MiniMax M2.5 (check tag)"
-        max_tokens: 8192
-      - id: "glm-5"
-        name: "GLM-5 (check tag)"
-        max_tokens: 8192
-        thinking: true
-      - id: "glm-5.1"
-        name: "GLM-5.1 (check tag)"
         max_tokens: 8192
         thinking: true
 

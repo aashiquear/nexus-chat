@@ -467,7 +467,13 @@ export default function App() {
               }
               return updated
             })
-            streamBufferRef.current = ''
+            // Note: do NOT reset streamBufferRef here. The agentic loop
+            // sends another round of streamed text after this tool call,
+            // and that text needs to *append* to the prior round (whose
+            // thinking block we want to keep visible). Resetting would
+            // overwrite the message content and erase that earlier
+            // thinking. The buffer is reset at the start of each new
+            // user turn (in handleSend) instead.
 
             // Auto-open canvas panel for graph plots
             try {

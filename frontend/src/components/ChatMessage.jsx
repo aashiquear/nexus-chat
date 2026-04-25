@@ -6,44 +6,38 @@ import {
 } from 'lucide-react'
 import LazyPlot from './LazyPlot'
 
-// Some models (Gemma "thinking" variants, DeepSeek-R1, Qwen-thinking, etc.)
-// emit their reasoning inside <think>…</think> or <thinking>…</thinking>.
-// Strip those out of the visible answer and surface them in a collapsible
-// dropdown so users can inspect the thought process if they want.
-function splitThinking(text) {
-  if (!text) return { thinking: '', answer: '', thinkingComplete: false, hasThinking: false }
-
-  const openRe = /<(think(?:ing)?)>/i
-  const openMatch = text.match(openRe)
-  if (!openMatch) {
-    return { thinking: '', answer: text, thinkingComplete: false, hasThinking: false }
-  }
-
-  const tag = openMatch[1]
-  const openIdx = openMatch.index
-  const beforeThink = text.slice(0, openIdx)
-  const afterOpen = text.slice(openIdx + openMatch[0].length)
-
-  const closeRe = new RegExp(`</${tag}>`, 'i')
-  const closeMatch = afterOpen.match(closeRe)
-  if (!closeMatch) {
-    // Still streaming the thought; nothing after to render yet.
-    return {
-      thinking: afterOpen,
-      answer: beforeThink,
-      thinkingComplete: false,
-      hasThinking: true,
+// Some models (Gemma "thinking" variants, DeepSeek-R1, Qwen-thinking,
+// Anthropic extended thinking, etc.) emit their reasoning inside
+// <think>…</think> or <thinking>…</thinking>. A single assistant turn
+// may contain *multiple* thinking blocks — e.g. when the agentic loop
+// runs ``think → tool call → tool result → think → final answer`` —
+// so we parse the streamed content into an ordered list of segments
+// and render each thinking block in its own collapsible box. This
+// keeps every thought process visible even after additional rounds.
+function parseMessageSegments(text) {
+  if (!text) return []
+  const segments = []
+  // Two alternatives: a fully-closed <think>…</think> block, or an
+  // unclosed <think>… that runs to the end of the streamed buffer
+  // (the in-progress case).
+  const re = /<(think(?:ing)?)>([\s\S]*?)<\/\1>|<(think(?:ing)?)>([\s\S]*)$/gi
+  let cursor = 0
+  let match
+  while ((match = re.exec(text)) !== null) {
+    if (match.index > cursor) {
+      segments.push({ type: 'text', text: text.slice(cursor, match.index) })
     }
+    if (match[1] !== undefined) {
+      segments.push({ type: 'thinking', text: match[2], complete: true })
+    } else {
+      segments.push({ type: 'thinking', text: match[4], complete: false })
+    }
+    cursor = match.index + match[0].length
   }
-
-  const thinking = afterOpen.slice(0, closeMatch.index)
-  const afterClose = afterOpen.slice(closeMatch.index + closeMatch[0].length)
-  return {
-    thinking,
-    answer: beforeThink + afterClose,
-    thinkingComplete: true,
-    hasThinking: true,
+  if (cursor < text.length) {
+    segments.push({ type: 'text', text: text.slice(cursor) })
   }
+  return segments
 }
 
 function ThinkingBlock({ text, complete }) {
@@ -516,11 +510,11 @@ export default function ChatMessage({ message, onOpenCanvas }) {
     } catch (_e) { return false }
   })
 
-  // Pull <think>…</think> reasoning out of assistant messages so it renders
-  // separately in a collapsible block instead of inline with the answer.
-  const { thinking, answer, thinkingComplete, hasThinking } = isUser
-    ? { thinking: '', answer: message.content, thinkingComplete: false, hasThinking: false }
-    : splitThinking(message.content)
+  // For assistant turns, walk the streamed buffer as an ordered list of
+  // segments so every <think>…</think> block (there can be several per
+  // turn) renders in its own collapsible box, interleaved with the text
+  // it was emitted alongside. User messages skip this entirely.
+  const segments = isUser ? null : parseMessageSegments(message.content)
 
   return (
     <div className={`message ${isUser ? 'message-user' : ''}`}>
@@ -533,10 +527,26 @@ export default function ChatMessage({ message, onOpenCanvas }) {
         </span>
       </div>
       <div className="message-body">
-        {hasThinking && (
-          <ThinkingBlock text={thinking} complete={thinkingComplete} />
+        {isUser ? (
+          <p>{message.content}</p>
+        ) : (
+          segments.map((seg, i) => {
+            if (seg.type === 'thinking') {
+              return (
+                <ThinkingBlock
+                  key={`think-${i}`}
+                  text={seg.text}
+                  complete={seg.complete}
+                />
+              )
+            }
+            return (
+              <React.Fragment key={`text-${i}`}>
+                {renderContent(seg.text)}
+              </React.Fragment>
+            )
+          })
         )}
-        {isUser ? <p>{message.content}</p> : renderContent(answer)}
 
         {/* Collapsible tool reasoning */}
         {toolPairs.length > 0 && (
