@@ -41,6 +41,10 @@ export default function App() {
   const [isTyping, setIsTyping] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
+  // LLM response status — drives the floating pop-up above the chat input.
+  // Shape: { stage: 'initiated'|'thinking'|'responding'|'tool_calling'|'tool_executing'|'idle'|'error', detail?: string }
+  const [llmStatus, setLlmStatus] = useState({ stage: 'idle' })
+
   // Conversation state
   const [conversations, setConversations] = useState([])
   const [activeConversationId, setActiveConversationId] = useState(null)
@@ -376,6 +380,7 @@ export default function App() {
     setMessages(newMessages)
     setInputValue('')
     setIsTyping(true)
+    setLlmStatus({ stage: 'initiated' })
     streamBufferRef.current = ''
     userScrolledRef.current = false  // Reset scroll on new message
 
@@ -401,6 +406,14 @@ export default function App() {
       },
       async (event) => {
         switch (event.type) {
+          case 'status':
+            // Backend-emitted lifecycle marker (e.g. "initiated"). The
+            // remaining stages are inferred from text/tool events below.
+            if (event.stage) {
+              setLlmStatus({ stage: event.stage })
+            }
+            break
+
           case 'text':
             streamBufferRef.current += event.content
             setMessages((prev) => {
@@ -424,9 +437,20 @@ export default function App() {
               return updated
             })
             setIsTyping(false)
+            // A <think>…</think> block that hasn't closed yet means the
+            // model is still mid-reasoning. Anything else counts as the
+            // visible response.
+            {
+              const buf = streamBufferRef.current
+              const lastOpen = Math.max(buf.lastIndexOf('<think>'), buf.lastIndexOf('<thinking>'))
+              const lastClose = Math.max(buf.lastIndexOf('</think>'), buf.lastIndexOf('</thinking>'))
+              const inThink = lastOpen > lastClose
+              setLlmStatus({ stage: inThink ? 'thinking' : 'responding' })
+            }
             break
 
           case 'tool_call':
+            setLlmStatus({ stage: 'tool_calling', detail: event.name })
             toolCalls.push({
               name: event.name,
               arguments: event.arguments,
@@ -452,6 +476,7 @@ export default function App() {
             break
 
           case 'tool_result':
+            setLlmStatus({ stage: 'tool_executing', detail: event.name })
             toolResults.push({
               name: event.name,
               result: event.result,
@@ -496,6 +521,7 @@ export default function App() {
 
           case 'done':
             setIsTyping(false)
+            setLlmStatus({ stage: 'idle' })
             // Track token usage if provided
             if (event.usage) {
               setTokenUsageHistory((prev) => {
@@ -533,6 +559,7 @@ export default function App() {
 
           case 'error':
             setIsTyping(false)
+            setLlmStatus({ stage: 'error', detail: event.content })
             setMessages((prev) => [
               ...prev,
               {
@@ -556,6 +583,7 @@ export default function App() {
     setTokenUsageHistory([])
     tokenUsageRef.current = []
     setLastResponseStats(null)
+    setLlmStatus({ stage: 'idle' })
   }
 
   return (
@@ -648,6 +676,8 @@ export default function App() {
           uploadProgress={uploadProgress}
           conversationStats={conversationStats}
           lastResponseStats={lastResponseStats}
+          llmStatus={llmStatus}
+          isStreaming={isStreaming}
         />
       </div>
 

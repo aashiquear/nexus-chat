@@ -1200,12 +1200,38 @@ body {
   background: var(--bg-panel-hover);
 }
 
-/* Typing indicator */
+/* Typing indicator — five connecting dots with a sliding link line */
 .typing-indicator {
-  display: flex;
-  gap: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding-left: 34px;
   margin-top: 4px;
+}
+
+.typing-indicator-connected {
+  position: relative;
+  padding-left: 34px;
+  padding-right: 12px;
+  height: 14px;
+}
+
+.typing-indicator-connected .typing-link {
+  position: absolute;
+  left: 38px;
+  right: 16px;
+  top: 50%;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--accent) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: typingLinkSlide 1.6s linear infinite;
+  opacity: 0.55;
 }
 
 .typing-dot {
@@ -1216,12 +1242,159 @@ body {
   animation: typingBounce 1.2s infinite;
 }
 
-.typing-dot:nth-child(2) { animation-delay: 0.2s; }
-.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+.typing-indicator-connected .typing-dot {
+  position: relative;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--bg-primary);
+  animation: typingPulseDot 1.4s ease-in-out infinite;
+}
+
+.typing-indicator:not(.typing-indicator-connected) .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-indicator:not(.typing-indicator-connected) .typing-dot:nth-child(3) { animation-delay: 0.4s; }
 
 @keyframes typingBounce {
   0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
   30% { transform: translateY(-4px); opacity: 1; }
+}
+
+@keyframes typingPulseDot {
+  0%, 100% { transform: scale(0.7); opacity: 0.45; }
+  50%      { transform: scale(1.1); opacity: 1; }
+}
+
+@keyframes typingLinkSlide {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ---- LLM response status pop-up (above the chat input) ---- */
+.llm-status-popup {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 auto 8px;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  font-size: 12px;
+  color: var(--text-secondary);
+  width: fit-content;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease,
+    background-color 0.25s ease,
+    border-color 0.25s ease,
+    color 0.25s ease;
+}
+
+/* Center the chip in the input column */
+.input-container > .llm-status-popup {
+  display: flex;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.llm-status-popup.is-active {
+  background: var(--accent-subtle);
+  border-color: var(--accent-border);
+  color: var(--accent);
+  animation: statusPopBob 2.2s ease-in-out infinite;
+}
+
+.llm-status-popup.is-quiet {
+  opacity: 0.7;
+}
+
+.llm-status-popup.stage-error {
+  background: rgba(184, 84, 80, 0.08);
+  border-color: rgba(184, 84, 80, 0.3);
+  color: var(--error);
+}
+
+.llm-status-popup .llm-status-icon {
+  flex-shrink: 0;
+}
+
+.llm-status-popup.is-active .llm-status-icon {
+  animation: statusIconPulse 1.6s ease-in-out infinite;
+}
+
+.llm-status-popup .llm-status-label {
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.llm-status-popup .llm-status-detail {
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+
+.llm-status-popup.is-active .llm-status-detail {
+  color: var(--accent-light);
+}
+
+@keyframes statusPopBob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-1px); }
+}
+
+@keyframes statusIconPulse {
+  0%, 100% { transform: scale(1);   opacity: 0.85; }
+  50%      { transform: scale(1.15); opacity: 1; }
+}
+
+/* ---- Five connecting dots animation (used in status pop-up) ---- */
+.connecting-dots {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 12px;
+  padding: 0 4px;
+}
+
+.connecting-dots .connecting-line {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: 50%;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    currentColor 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: connectingLineSlide 1.4s linear infinite;
+  opacity: 0.4;
+}
+
+.connecting-dots .connecting-dot {
+  position: relative;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 1.5px var(--bg-panel);
+  animation: connectingDotPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes connectingDotPulse {
+  0%, 100% { transform: scale(0.7); opacity: 0.5; }
+  50%      { transform: scale(1.15); opacity: 1; }
+}
+
+@keyframes connectingLineSlide {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 /* ---- Input Area ---- */

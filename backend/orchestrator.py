@@ -228,12 +228,18 @@ class ChatOrchestrator:
         Stream a chat response, handling tool calls in an agentic loop.
 
         Yields dicts with:
+          {"type": "status", "stage": "initiated|thinking|responding|tool_calling|tool_executing"}
           {"type": "text", "content": "..."}
           {"type": "tool_call", "name": "...", "arguments": {...}}
           {"type": "tool_result", "name": "...", "result": "..."}
           {"type": "done"}
           {"type": "error", "content": "..."}
         """
+        # Surface "initiated" immediately so the UI can flip from idle to
+        # active before the provider's first token arrives (some models
+        # spend several seconds in queue/warmup).
+        yield {"type": "status", "stage": "initiated"}
+
         # Resolve provider
         resolved = self._resolve_provider(model_id)
         if not resolved:

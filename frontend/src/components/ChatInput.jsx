@@ -1,6 +1,52 @@
 import React, { useRef, useEffect, useState } from 'react'
-import { Send, Paperclip, X, BarChart2 } from 'lucide-react'
+import {
+  Send, Paperclip, X, BarChart2,
+  Sparkles, Brain, MessageSquare, Wrench, CircleCheck, AlertCircle,
+} from 'lucide-react'
 import StatsPopup from './StatsPopup'
+
+// Map an llmStatus.stage to the icon + label shown inside the pop-up.
+// `stage: 'idle'` collapses the pop-up to a quiet "awaiting prompt" state.
+const STATUS_VIEW = {
+  initiated:      { Icon: Sparkles,     label: 'Initiated' },
+  thinking:       { Icon: Brain,        label: 'Thinking' },
+  responding:     { Icon: MessageSquare,label: 'Responding' },
+  tool_calling:   { Icon: Wrench,       label: 'Calling tool' },
+  tool_executing: { Icon: Wrench,       label: 'Executing tool' },
+  idle:           { Icon: CircleCheck,  label: 'Awaiting chat prompt' },
+  error:          { Icon: AlertCircle,  label: 'Error' },
+}
+
+function ConnectingDots() {
+  // Five dots joined by a sliding gradient — provides an at-a-glance
+  // "still working" cue independent of the in-message typing indicator,
+  // which is easy to miss after scrolling.
+  return (
+    <span className="connecting-dots" aria-hidden="true">
+      <span className="connecting-line" />
+      {[0, 1, 2, 3, 4].map((i) => (
+        <span key={i} className="connecting-dot" style={{ animationDelay: `${i * 0.12}s` }} />
+      ))}
+    </span>
+  )
+}
+
+function LlmStatusPopup({ status, isStreaming }) {
+  const stage = status?.stage || 'idle'
+  const view = STATUS_VIEW[stage] || STATUS_VIEW.idle
+  const { Icon, label } = view
+  const active = isStreaming && stage !== 'idle' && stage !== 'error'
+  return (
+    <div className={`llm-status-popup stage-${stage} ${active ? 'is-active' : 'is-quiet'}`}>
+      <Icon size={14} className="llm-status-icon" />
+      <span className="llm-status-label">
+        {label}
+        {status?.detail ? <span className="llm-status-detail"> · {status.detail}</span> : null}
+      </span>
+      {active && <ConnectingDots />}
+    </div>
+  )
+}
 
 function CircularProgress({ progress, size = 32, strokeWidth = 3 }) {
   const radius = (size - strokeWidth) / 2
@@ -57,6 +103,8 @@ export default function ChatInput({
   uploadProgress,
   conversationStats,
   lastResponseStats,
+  llmStatus,
+  isStreaming,
 }) {
   const textareaRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -89,6 +137,9 @@ export default function ChatInput({
   return (
     <div className="input-area">
       <div className="input-container">
+        {/* Floating LLM response status — visible just above the chat input
+            so it stays in view even when the message list scrolls. */}
+        <LlmStatusPopup status={llmStatus} isStreaming={isStreaming} />
         {/* Upload progress chip: shows current stage (uploading vs embedding) and % */}
         {uploadProgress && (
           <div className={`upload-progress-chip stage-${uploadProgress.stage || 'uploading'}`}>

@@ -737,10 +737,11 @@ export function TypingIndicator() {
         </div>
         <span className="message-role">Assistant</span>
       </div>
-      <div className="typing-indicator">
-        <div className="typing-dot" />
-        <div className="typing-dot" />
-        <div className="typing-dot" />
+      <div className="typing-indicator typing-indicator-connected" aria-label="Assistant is responding">
+        <span className="typing-link" />
+        {[0, 1, 2, 3, 4].map((i) => (
+          <span key={i} className="typing-dot" style={{ animationDelay: `${i * 0.12}s` }} />
+        ))}
       </div>
     </div>
   )
