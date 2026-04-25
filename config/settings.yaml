@@ -119,11 +119,6 @@ providers:
     # ----
     models:
       # --- Cloud models (Ollama Cloud) ---
-      - id: "gemma4:latest"
-        name: "Gemma 4 (cloud)"
-        max_tokens: 4096
-        thinking: true
-        thinking_level: "medium"
       - id: "gpt-oss:120b-cloud"
         name: "GPT-OSS 120B (cloud)"
         max_tokens: 4096
@@ -143,19 +138,34 @@ providers:
         name: "GLM-5.1 (cloud)"
         max_tokens: 8192
         thinking: true
+      - id: "kimi-k2.6:cloud"
+        name: "Kimi-K2.6 (cloud)"
+        max_tokens: 8192
+        thinking: true
+      - id: "ministral-3:14b-cloud"
+        name: "Ministral 3 14B (cloud)"
+        max_tokens: 4096
+      - id: "devstral-2:123b-cloud"
+        name: "Devstral 2 123B (cloud)"
+        max_tokens: 8192
 
       # --- Local models: general ---
+      - id: "gemma4:latest"
+        name: "Gemma 4"
+        max_tokens: 4096
+        thinking: true
+        thinking_level: "medium"
       - id: "gemma4:31b"
         name: "Gemma 4 31B"
         max_tokens: 4096
         thinking: true
         thinking_level: "medium"
+      - id: "devstral-small-2:24b"
+        name: "Devstral Small 2 24B"
+        max_tokens: 8192
       - id: "ministral-3:14b"
         name: "Ministral 3 14B"
         max_tokens: 4096
-      - id: "devstral-2:123b"
-        name: "Devstral 2 123B"
-        max_tokens: 8192
       - id: "llama4:latest"
         name: "Llama 4"
         max_tokens: 4096
