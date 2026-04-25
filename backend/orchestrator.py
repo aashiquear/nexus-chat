@@ -70,8 +70,8 @@ class ChatOrchestrator:
         import asyncio
 
         active = list(self._providers.items())
-        # Probe every provider in parallel; on failure we fall back to
-        # an empty set ("no info"), in which case the UI shows the model
+        # Probe every provider in parallel; failures are normalized to
+        # None ("no info"), in which case the UI shows the model
         # without a remote-availability flag.
         remote_lists = await asyncio.gather(
             *[p.list_remote_models() for _, p in active],
