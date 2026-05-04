@@ -243,7 +243,7 @@ tools:
   web_search:
     enabled: true
     name: "Web Search"
-    description: "Search the web for current information"
+    description: "Search the web for real-time, current, or factual information including weather, news, sports, finance, and dictionary lookups."
     icon: "search"
     config:
       api_key: "${SEARCH_API_KEY}"
