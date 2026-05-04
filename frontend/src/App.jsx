@@ -481,6 +481,22 @@ export default function App() {
             })
             break
 
+          case 'tool_stream':
+            // Live output from a streaming tool (e.g. code_executor)
+            setCanvasData((prev) => {
+              if (prev && prev.type === 'terminal' && prev.name === event.name) {
+                return { ...prev, chunks: [...prev.chunks, event.chunk] }
+              }
+              return {
+                type: 'terminal',
+                name: event.name,
+                title: `Running ${event.name}…`,
+                chunks: [event.chunk],
+                contentType: 'terminal',
+              }
+            })
+            break
+
           case 'tool_result':
             setLlmStatus({ stage: 'tool_executing', detail: event.name })
             toolResults.push({
@@ -521,6 +537,9 @@ export default function App() {
                   figureJson: figData,
                   title: parsed.title || figData.layout?.title?.text || 'Interactive Plot',
                 })
+              } else if (parsed && parsed.downloadable) {
+                // If a downloadable result comes through, the user can
+                // click Preview in the inline card; we don't auto-open.
               }
             } catch (_e) { /* not JSON */ }
             break
@@ -723,6 +742,10 @@ export default function App() {
           <CanvasPanel
             image={canvasData.image}
             figureJson={canvasData.figureJson}
+            content={canvasData.content}
+            contentType={canvasData.contentType}
+            chunks={canvasData.chunks}
+            filename={canvasData.filename}
             title={canvasData.title}
             onClose={() => setCanvasData(null)}
             style={canvasWidth ? { width: canvasWidth } : undefined}

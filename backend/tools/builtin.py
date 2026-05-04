@@ -1,6 +1,7 @@
 """Built-in tools for Nexus Chat."""
 
 import ast
+import asyncio
 import math
 import operator
 import datetime as dt
@@ -9,6 +10,8 @@ import logging
 import subprocess
 import tempfile
 import os
+import uuid
+from collections.abc import AsyncIterator
 from pathlib import Path
 
 from . import BaseTool, register_tool
@@ -84,7 +87,10 @@ class DateTimeTool(BaseTool):
 @register_tool("code_executor")
 class CodeExecutorTool(BaseTool):
     name = "code_executor"
-    description = "Execute Python code in a sandboxed environment and return the output."
+    description = (
+        "Execute Python code in a sandboxed Docker environment and return the output. "
+        "Live output is streamed to the canvas terminal during execution."
+    )
     parameters = {
         "type": "object",
         "properties": {
@@ -96,34 +102,92 @@ class CodeExecutorTool(BaseTool):
         "required": ["code"]
     }
 
+    def __init__(self, config: dict | None = None):
+        super().__init__(config)
+        self._last_output = ""
+        self._last_return_code = 0
+
     async def execute(self, **kwargs) -> str:
+        """Non-streaming fallback: collect all chunks and return as JSON."""
+        chunks = []
+        async for chunk in self.stream_execute(**kwargs):
+            chunks.append(chunk)
+        return json.dumps({
+            "output": "\n".join(chunks).strip() or "(no output)",
+            "return_code": self._last_return_code,
+        })
+
+    async def stream_execute(self, **kwargs) -> AsyncIterator[str]:
+        """Run Python code inside the nexus-sandbox Docker container
+        and yield stdout/stderr lines in real time.
+        """
         code = kwargs.get("code", "")
         timeout = self.config.get("timeout", 30)
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".py", delete=False
-        ) as f:
-            f.write(code)
-            tmp_path = f.name
+        session_id = uuid.uuid4().hex[:12]
+        sandbox_dir = Path("./data/sandbox")
+        sandbox_dir.mkdir(parents=True, exist_ok=True)
+        code_file = sandbox_dir / f"{session_id}.py"
+        code_file.write_text(code, encoding="utf-8")
 
+        proc = await asyncio.create_subprocess_exec(
+            "docker", "exec", "-i", "nexus-sandbox",
+            "python3", f"/sandbox/{session_id}.py",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        queue: asyncio.Queue[str | None] = asyncio.Queue()
+
+        async def pump(stream: asyncio.StreamReader, prefix: str) -> None:
+            while True:
+                line = await stream.readline()
+                if not line:
+                    break
+                text = line.decode("utf-8", errors="replace").rstrip("\n")
+                await queue.put(prefix + text)
+
+        stdout_task = asyncio.create_task(pump(proc.stdout, ""))
+        stderr_task = asyncio.create_task(pump(proc.stderr, "[stderr]: "))
+
+        async def drain() -> None:
+            await asyncio.gather(stdout_task, stderr_task)
+            await queue.put(None)
+
+        drain_task = asyncio.create_task(drain())
+
+        output_lines: list[str] = []
         try:
-            result = subprocess.run(
-                ["python3", tmp_path],
-                capture_output=True, text=True, timeout=timeout,
-            )
-            output = result.stdout
-            if result.stderr:
-                output += f"\n[stderr]: {result.stderr}"
-            return json.dumps({
-                "output": output.strip() or "(no output)",
-                "return_code": result.returncode,
-            })
-        except subprocess.TimeoutExpired:
-            return json.dumps({"error": f"Execution timed out ({timeout}s)"})
-        except Exception as e:
-            return json.dumps({"error": str(e)})
+            while True:
+                try:
+                    line = await asyncio.wait_for(queue.get(), timeout=timeout)
+                except asyncio.TimeoutError:
+                    proc.kill()
+                    yield "Execution timed out"
+                    output_lines.append("Execution timed out")
+                    break
+
+                if line is None:
+                    break
+
+                output_lines.append(line)
+                yield line
         finally:
-            os.unlink(tmp_path)
+            drain_task.cancel()
+            try:
+                await asyncio.wait_for(proc.wait(), timeout=5)
+            except asyncio.TimeoutError:
+                proc.kill()
+                await proc.wait()
+
+            self._last_return_code = proc.returncode or 0
+            self._last_output = "\n".join(output_lines)
+
+            # Cleanup sandbox file
+            try:
+                code_file.unlink()
+            except OSError:
+                pass
 
 
 @register_tool("file_reader")
