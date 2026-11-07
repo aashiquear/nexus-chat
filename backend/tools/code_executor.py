@@ -209,6 +209,7 @@ class CodeExecutorTool(BaseTool):
             register_session(
                 self._last_session_id, code, self.sandbox_url,
                 language=language, packages=packages, timeout=timeout,
+                owner=self.ctx.username,
             )
             yield f"[interactive session ready: {self._last_session_id}]"
             yield "Open the canvas terminal to send input and view live output."
