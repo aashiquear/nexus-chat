@@ -21,6 +21,8 @@ services:
       - ./config:/app/config:ro
       # Persist uploaded files and vector store
       - ./data:/app/data
+    environment:
+      - NEXUS_SANDBOX_URL=http://nexus-sandbox:8500
     extra_hosts:
       # Allow container to reach Ollama on the host machine
       - "host.docker.internal:host-gateway"
@@ -42,9 +44,15 @@ services:
     expose:
       - "8500"
     environment:
-      - SANDBOX_TIMEOUT=60
-    mem_limit: 512m
-    cpus: '1.0'
+      - SANDBOX_TIMEOUT=120
+      - SANDBOX_INSTALL_TIMEOUT=300
+      - SANDBOX_RUN_TTL=1800
+    volumes:
+      # Persist on-the-fly installed packages so repeat runs are instant
+      - sandbox-pylib:/sandbox/pylib
+      - sandbox-npm-cache:/sandbox/npm-cache
+    mem_limit: 2g
+    cpus: '2.0'
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8500/health')"]
@@ -75,3 +83,5 @@ services:
 
 volumes:
   mcp-db-data:
+  sandbox-pylib:
+  sandbox-npm-cache:

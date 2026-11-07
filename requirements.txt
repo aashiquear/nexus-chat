@@ -1,6 +1,6 @@
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
-websockets==13.0
+websockets>=13.0
 pydantic==2.9.0
 pydantic-settings==2.5.0
 python-dotenv==1.0.1
@@ -10,11 +10,12 @@ python-multipart==0.0.9
 aiofiles==24.1.0
 
 # LLM Providers
-anthropic==0.34.0
-openai==1.45.0
+anthropic>=0.69.0
+openai>=1.109.0
 
 # RAG
 chromadb==0.5.5
+posthog>=2.4.0,<4.0.0
 sentence-transformers==3.0.1
 
 # File processing
@@ -37,6 +38,16 @@ Pillow>=10.0.0
 # Text-to-image diffusion (Z-Image-Turbo — lazy-loaded on first use)
 diffusers>=0.32.0
 accelerate>=1.0.0
+
+# Data & utility tools (csv_viewer, data_sql, math_solver, unit_converter, statistics, dates, json)
+pandas>=2.2.0
+openpyxl>=3.1.0
+duckdb>=1.1.0
+sympy>=1.13
+pint>=0.24
+scipy>=1.13
+jsonschema>=4.23
+holidays>=0.60
 
 # Utilities
 jinja2==3.1.4
