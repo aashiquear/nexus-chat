@@ -455,6 +455,8 @@ class MCPClient:
         self._connected = False
         self._transport = None
         self.last_error: str | None = None
+        # Which registry file this server is persisted in (set by the manager).
+        self.registry_path: Path | None = None
 
     # ------------------------------------------------------------------
     async def _handshake(self, transport) -> dict:
@@ -653,6 +655,8 @@ class MCPManager:
             except ValueError as e:
                 logger.warning("Skipping MCP server '%s': %s", server_id, e)
                 return
+            if cfg.get("source") != "config":
+                client.registry_path = self._registry_path
             self._clients[server_id] = client
             ok = await client.connect()
             if ok:
@@ -662,35 +666,56 @@ class MCPManager:
 
         await asyncio.gather(*[_connect(sid, cfg) for sid, cfg in entries], return_exceptions=True)
 
-    async def add_server(self, server_id: str, cfg: dict, persist: bool = True) -> dict | None:
-        """Connect to a new MCP server and register it. Returns server info or None on failure."""
+    async def load_registry(self, path: Path, defaults: dict | None = None) -> None:
+        """Connect every server stored in an additional registry file
+        (e.g. a per-user registry in the multi-user server edition).
+        ``defaults`` are merged into each entry (owner, scope, …)."""
+        entries = _load_user_mcp_servers(path)
+
+        async def _connect(server_id, cfg):
+            if server_id in self._clients:
+                return
+            try:
+                client = MCPClient(server_id, {**(defaults or {}), **cfg})
+            except ValueError as e:
+                logger.warning("Skipping MCP server '%s': %s", server_id, e)
+                return
+            client.registry_path = path
+            self._clients[server_id] = client
+            await client.connect()
+
+        await asyncio.gather(*[_connect(sid, cfg) for sid, cfg in entries.items() if cfg.get("enabled", True)], return_exceptions=True)
+
+    async def add_server(
+        self, server_id: str, cfg: dict, persist: bool = True, registry_path: Path | None = None
+    ) -> dict | None:
+        """Connect to a new MCP server and register it. Returns server info
+        or None on failure. ``registry_path`` selects which JSON registry
+        the entry is persisted in (default: the manager's)."""
         if server_id in self._clients:
             await self._clients[server_id].close()
         client = MCPClient(server_id, cfg)
+        client.registry_path = registry_path or self._registry_path
         connected = await client.connect()
-        if not connected:
-            # keep it registered so the UI can show the error / retry
-            self._clients[server_id] = client
-            if persist:
-                self._persist(server_id, client.config)
-            return None
         self._clients[server_id] = client
         if persist:
-            self._persist(server_id, client.config)
-        return client.info()
+            self._persist(server_id, client.config, client.registry_path)
+        return client.info() if connected else None
 
-    def _persist(self, server_id: str, cfg: dict) -> None:
-        servers = _load_user_mcp_servers(self._registry_path)
+    def _persist(self, server_id: str, cfg: dict, path: Path | None = None) -> None:
+        path = path or self._registry_path
+        servers = _load_user_mcp_servers(path)
         servers[server_id] = {k: v for k, v in cfg.items() if v not in (None, "", [], {})}
-        _save_user_mcp_servers(servers, self._registry_path)
+        _save_user_mcp_servers(servers, path)
 
-    async def remove_server(self, server_id: str) -> bool:
+    async def remove_server(self, server_id: str, registry_path: Path | None = None) -> bool:
         """Remove a registered MCP server."""
         client = self._clients.pop(server_id, None)
-        servers = _load_user_mcp_servers(self._registry_path)
+        path = registry_path or getattr(client, "registry_path", None) or self._registry_path
+        servers = _load_user_mcp_servers(path)
         existed = servers.pop(server_id, None) is not None
         if existed:
-            _save_user_mcp_servers(servers, self._registry_path)
+            _save_user_mcp_servers(servers, path)
         if client is None:
             return existed
         await client.close()
