@@ -15,10 +15,15 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies. Node.js (npx) and uv (uvx) let Nexus run
+# stdio MCP servers from the npm / PyPI marketplaces inside the container.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
+    build-essential curl ca-certificates gnupg \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && pip install --no-cache-dir uv \
     && rm -rf /var/lib/apt/lists/*
+ENV ANONYMIZED_TELEMETRY=False
 
 # Install Python dependencies
 COPY requirements.txt .
@@ -32,7 +37,7 @@ COPY config/ ./config/
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 
 # Create data directories
-RUN mkdir -p data/uploads data/vector_store data/files data/downloads
+RUN mkdir -p data/uploads data/vector_store data/files data/downloads data/conversations data/sandbox
 
 # Expose port
 EXPOSE 8000
