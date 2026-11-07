@@ -8,7 +8,7 @@ A modular, agentic chatbot with RAG support and multi-LLM provider integration. 
 - **Vision** — Attach, paste or drop images into the prompt box; they are sent to vision-capable models (Gemma 4, Llama 4, Qwen-VL, LLaVA, Claude, GPT-4o/5). Capabilities (vision / tools / thinking / context length / quantization) are probed live via Ollama's `/api/show` and shown as badges.
 - **Generation & context control** — A settings control next to the prompt box sets context size (`num_ctx`), max tokens, temperature, top-p/top-k, keep-alive, thinking mode/effort, and lets you switch or pull quantization variants. Separate defaults for *local* and *cloud* models, user-editable.
 - **Context compaction** — Long conversations are automatically truncated or summarised to stay inside the model's context window (threshold and retained tail configurable); summaries persist with the conversation.
-- **Agentic Tool System** — Built-in tools: multi-language sandbox code executor, web search, web browser (URL reader), CSV viewer, file reader, graph plotter, file generator (PDF/DOCX/PPTX/PNG), SVG diagrams, image analysis, calculator, date/time — plus a simple plugin API to add your own.
+- **Agentic Tool System with dynamic discovery** — 25 built-in tools (sandbox code executor, web search & browser, academic search, CSV viewer, SQL over uploads, document search, graph plotter, decision matrix, statistics, symbolic math, unit & currency conversion, date arithmetic, text/JSON utilities, memory, tasks, change tracker, file generator, diagrams, image analysis…). In **Auto** mode a router attaches only the tools relevant to each message (keyword + embedding ranking) and the model can pull in more with `discover_tools`; tool modules load lazily so a big catalog costs nothing at startup. **Manual** mode keeps classic tick-boxes. See [docs/TOOLSET.md](docs/TOOLSET.md).
 - **Sandbox** — Runs Python, JavaScript/TypeScript, Bash, Java, C/C++, Go, Rust, R and HTML in an isolated container, installs missing pip/npm packages on the fly, streams output live, and returns every file the program writes (plots, CSVs, PDFs, HTML) as previewable downloads. Code blocks in chat have a **Run** button.
 - **MCP Marketplace** — Install MCP servers from the official MCP Registry (the catalog behind the GitHub / Claude / ChatGPT marketplaces), import a Claude Desktop / ChatGPT `mcpServers` JSON block, or add a server by URL or stdio command. All MCP transports are supported: streamable HTTP, SSE, stdio and the legacy Nexus `/rpc`. MCP resources can be indexed into RAG.
 - **RAG Integration** — Upload files (text, PDF, DOCX, XLSX, PPTX, CSV …) and get context-aware responses using ChromaDB vector storage
@@ -148,9 +148,23 @@ The `nexus-sandbox` container executes code from the `code_executor` tool and fr
 
 Files written to the working directory are returned as artifacts and appear as preview/download cards. If the sandbox container is unreachable (e.g. `python -m backend.main` without Docker), Python/JS/Bash fall back to a local subprocess with a warning.
 
+## Tool selection (Auto vs Manual)
+
+`tool_selection` in `config/settings.yaml` controls how tools reach the model:
+
+```yaml
+tool_selection:
+  mode: "auto"       # auto = discovery router + pins, manual = ticked tools only
+  max_tools: 8       # matches attached per message on top of the core set
+  min_score: 0.25
+  include_core: true # calculator, date/time, web search, web browser, code executor, memory, discover_tools
+```
+
+Each user can flip the mode in the sidebar; ticked tools are *pinned* in Auto mode. `GET /api/tools/discover?q=…` exposes the ranker for debugging.
+
 ## Adding Custom Tools
 
-Creating a new tool takes 3 steps:
+Creating a new tool takes 4 steps (the extra one registers it in the catalog so it is discoverable and lazily loaded):
 
 ### 1. Create a Python file
 
@@ -195,15 +209,17 @@ tools:
       custom_key: "value"   # Accessible via self.config
 ```
 
-### 3. Import in main.py
+### 3. Register in the catalog
 
-Add to `backend/main.py`:
+Add an entry to `backend/tools/catalog.py` so the router can rank it and import its module lazily:
 
 ```python
-import backend.tools.my_tool
+{"id": "my_tool", "module": "backend.tools.my_tool", "category": "Utilities",
+ "summary": "Does something useful", "tags": ["useful", "something"],
+ "risk": "low", "permission": "auto", "offline": True},
 ```
 
-Restart the server — the tool appears in the sidebar.
+Restart the server — the tool appears in the sidebar under its category and is attached automatically when a message matches its tags.
 
 ## MCP Server Integration
 

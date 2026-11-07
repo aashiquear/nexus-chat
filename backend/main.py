@@ -37,18 +37,15 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import backend.mcp  # noqa: F401 – MCP client module
 
-# Import providers and tools to trigger registration
+# Import providers to trigger registration. Tools are *not* imported
+# here: backend/tools/catalog.py maps every tool to its module and the
+# orchestrator imports a module the first time one of its tools is used,
+# so startup cost does not grow with the number of tools.
 import backend.providers.anthropic_provider
 import backend.providers.ollama_provider
 import backend.providers.openai_provider
-import backend.tools.builtin
-import backend.tools.code_executor
-import backend.tools.data_tools
-import backend.tools.example_tool
-import backend.tools.file_generator
-import backend.tools.graph_plotter
-import backend.tools.image_synthesizer
-import backend.tools.svg_diagram
+import backend.tools.catalog  # noqa: F401
+import backend.tools.example_tool  # tiny template tool, kept eager
 from backend import conversations
 from backend.config import get_config, load_config
 from backend.mcp.client import parse_mcp_config_import, search_registry
@@ -120,9 +117,11 @@ sandbox_dir.mkdir(parents=True, exist_ok=True)
 files_dir = Path("./data/files")
 files_dir.mkdir(parents=True, exist_ok=True)
 plots_dir = Path("./data")
+state_dir = Path("./data/state")
+state_dir.mkdir(parents=True, exist_ok=True)
 
 set_default_context(
-    ToolContext(upload_dir=upload_dir, files_dir=files_dir, downloads_dir=download_dir, plots_dir=plots_dir)
+    ToolContext(upload_dir=upload_dir, files_dir=files_dir, downloads_dir=download_dir, plots_dir=plots_dir, state_dir=state_dir)
 )
 
 
@@ -215,8 +214,15 @@ async def generation_settings():
 
 @app.get("/api/tools")
 async def list_tools():
-    """Return all available tools."""
-    return {"tools": orchestrator.get_available_tools()}
+    """Return all available tools with catalog metadata plus the tool
+    selection policy (auto discovery vs manual)."""
+    return {"tools": orchestrator.get_available_tools(), "selection": orchestrator.tool_selection_config()}
+
+
+@app.get("/api/tools/discover")
+async def discover_tools_endpoint(q: str = "", limit: int = 8):
+    """Rank tools against a query — the same router the chat uses in auto mode."""
+    return {"query": q, "matches": orchestrator.discover(q, limit=max(1, min(limit, 20)))}
 
 
 UPLOAD_STREAM_CHUNK = 1024 * 1024  # 1 MiB per read — bounded memory
@@ -501,7 +507,7 @@ async def preview_file(filename: str):
 @app.get("/api/sandbox/languages")
 async def sandbox_languages():
     """Which languages the sandbox container can execute right now."""
-    tool = orchestrator._tools.get("code_executor")
+    tool = orchestrator.get_tool("code_executor")
     if tool is None:
         return {"languages": [], "sandbox": False}
     import httpx
@@ -531,7 +537,7 @@ async def sandbox_run(request: Request):
     code = body.get("code") or ""
     if not code.strip():
         raise HTTPException(400, "code is required")
-    tool = orchestrator._tools.get("code_executor")
+    tool = orchestrator.get_tool("code_executor")
     if tool is None:
         raise HTTPException(400, "code_executor tool is disabled")
     kwargs = {
@@ -876,6 +882,7 @@ async def websocket_chat(websocket: WebSocket):
             system = request.get("system_prompt", "")
             generation = request.get("generation") or None
             compaction_state = request.get("compaction_state") or None
+            tool_mode = request.get("tool_mode") or None
 
             async for event in orchestrator.chat_stream(
                 messages=messages,
@@ -885,6 +892,7 @@ async def websocket_chat(websocket: WebSocket):
                 system_prompt=system,
                 generation=generation,
                 compaction_state=compaction_state,
+                tool_mode=tool_mode,
             ):
                 await websocket.send_text(json.dumps(event))
 

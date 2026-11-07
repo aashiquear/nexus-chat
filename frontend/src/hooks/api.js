@@ -56,6 +56,19 @@ export async function fetchTools() {
   return data.tools || []
 }
 
+// Tools plus the server's tool-selection policy ({mode, max_tools, …}).
+export async function fetchToolsWithPolicy() {
+  const res = await apiFetch(`/api/tools`)
+  const data = await res.json()
+  return { tools: data.tools || [], selection: data.selection || { mode: 'auto' } }
+}
+
+export async function discoverTools(query, limit = 8) {
+  const res = await apiFetch(`/api/tools/discover?q=${encodeURIComponent(query)}&limit=${limit}`)
+  if (!res.ok) return []
+  return (await res.json()).matches || []
+}
+
 export async function fetchGenerationSettings() {
   const res = await apiFetch(`/api/settings/generation`)
   if (!res.ok) return null

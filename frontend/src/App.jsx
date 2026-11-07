@@ -16,6 +16,7 @@ import { useChat } from "./hooks/useChat";
 import {
   fetchModels,
   fetchTools,
+  fetchToolsWithPolicy,
   fetchFiles,
   uploadFile,
   deleteFile,
@@ -134,6 +135,15 @@ export default function App() {
   const [mcpServers, setMcpServers] = useState([]);
   const [selectedModel, setSelectedModel] = useState("");
   const [selectedTools, setSelectedTools] = useState([]);
+  // Tool selection mode: "auto" (discovery router + pins) or "manual".
+  const [toolMode, setToolMode] = useState(() => {
+    try {
+      return localStorage.getItem("nexus:toolMode") || "";
+    } catch {
+      return "";
+    }
+  });
+  const [lastToolSelection, setLastToolSelection] = useState(null);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState("");
@@ -192,16 +202,18 @@ export default function App() {
 
   const loadData = async () => {
     try {
-      const [m, t, f, mcp, convos, gen] = await Promise.all([
+      const [m, tp, f, mcp, convos, gen] = await Promise.all([
         fetchModels(),
-        fetchTools(),
+        fetchToolsWithPolicy(),
         fetchFiles(),
         fetchMCPServers(),
         fetchConversations(),
         fetchGenerationSettings(),
       ]);
+      const t = tp.tools;
       setModels(m);
       setTools(t);
+      setToolMode((prev) => prev || tp.selection?.mode || "auto");
       setFiles(f);
       setMcpServers(mcp);
       setConversations(convos);
@@ -217,9 +229,11 @@ export default function App() {
       const preferred = m.find(isUsable) || m.find((x) => x.available);
       if (preferred) setSelectedModel((prev) => prev || preferred.id);
 
-      // Sensible default tool set on first load: everything built in.
+      // Manual mode starts with every built-in tool ticked; auto mode
+      // starts with no pins (the router picks per message).
+      const mode = tp.selection?.mode || "auto";
       setSelectedTools((prev) =>
-        prev.length ? prev : t.filter((x) => x.source !== "mcp").map((x) => x.id),
+        prev.length || mode === "auto" ? prev : t.filter((x) => x.source !== "mcp").map((x) => x.id),
       );
     } catch (err) {
       console.error("Failed to load data:", err);
@@ -305,6 +319,19 @@ export default function App() {
       chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, isTyping]);
+
+  const handleToolModeChange = useCallback(
+    (mode) => {
+      setToolMode(mode);
+      try {
+        localStorage.setItem("nexus:toolMode", mode);
+      } catch {}
+      if (mode === "manual" && selectedTools.length === 0) {
+        setSelectedTools(tools.filter((x) => x.source !== "mcp").map((x) => x.id));
+      }
+    },
+    [selectedTools.length, tools],
+  );
 
   // Toggle helpers
   const toggleTool = (id) => {
@@ -648,9 +675,19 @@ export default function App() {
         files: selectedFiles,
         generation,
         compaction_state: compactionRef.current || undefined,
+        tool_mode: toolMode || undefined,
       },
       async (event) => {
         switch (event.type) {
+          case "tools_selected":
+            setLastToolSelection(event);
+            upsertAssistant((m) => ({
+              toolSelection: event.mode === "discover" && m.toolSelection
+                ? { ...m.toolSelection, matched: [...(m.toolSelection.matched || []), ...(event.matched || [])], discovered: true }
+                : event,
+            }));
+            break;
+
           case "status":
             if (event.stage) setLlmStatus({ stage: event.stage });
             break;
@@ -788,7 +825,7 @@ export default function App() {
         }
       },
     );
-  }, [inputValue, pendingImages, messages, selectedModel, selectedTools, selectedFiles, sendMessage, activeConversationId, persistConversation, generation]);
+  }, [inputValue, pendingImages, messages, selectedModel, selectedTools, selectedFiles, sendMessage, activeConversationId, persistConversation, generation, toolMode]);
 
   // New chat
   const handleNewChat = () => {
@@ -853,6 +890,9 @@ export default function App() {
         onNewChat={handleNewChat}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        toolMode={toolMode}
+        onToolModeChange={handleToolModeChange}
+        lastToolSelection={lastToolSelection}
       />
 
       {showMarketplace && (

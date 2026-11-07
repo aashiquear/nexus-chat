@@ -39,9 +39,15 @@ Pillow>=10.0.0
 diffusers>=0.32.0
 accelerate>=1.0.0
 
-# Data tools (csv_viewer, file_reader spreadsheets)
+# Data & utility tools (csv_viewer, data_sql, math_solver, unit_converter, statistics, dates, json)
 pandas>=2.2.0
 openpyxl>=3.1.0
+duckdb>=1.1.0
+sympy>=1.13
+pint>=0.24
+scipy>=1.13
+jsonschema>=4.23
+holidays>=0.60
 
 # Utilities
 jinja2==3.1.4
